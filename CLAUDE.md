@@ -30,13 +30,15 @@
 ```
 karman-line/
 ├── index.html          ← 작성 대상 (유일한 HTML 파일)
-├── images/             ← 실제 우주 사진이 들어갈 폴더 (사용자가 직접 채움)
+├── images/             ← NASA 이미지 라이브러리에서 받은 우주 사진 11장
+│   └── CREDITS.md      ← 파일별 NASA ID·원본 URL·크레딧 정리표
 └── CLAUDE.md
 ```
 
 ### 이미지 처리 방침
 
-- 이미지 파일은 **다운로드하지 말 것**. `images/` 폴더에는 나중에 사용자가 NASA·ESA 공개 이미지를 직접 넣는다.
+- 이미지는 **NASA Image and Video Library**(images.nasa.gov)에서 받아 `images/`에 넣어 두었다. NASA가 직접 제작한 이미지만 사용하며, 가로 1600px 이하·파일당 약 500KB 이하로 리사이즈해 두었다.
+- 파일별 NASA ID, 원본 URL, 크레딧은 `images/CREDITS.md`에 정리되어 있다. 이미지를 교체하거나 추가하면 이 표도 함께 갱신하고, 갤러리 `figcaption`과 푸터의 출처 문구도 실제 크레딧에 맞춘다.
 - `<img>` 태그는 아래 파일명을 기준으로 상대 경로(`images/파일명.jpg`)로 작성한다.
   - `hero-earth.jpg` (지구 지평선)
   - `tour-suborbital.jpg` / `tour-orbital.jpg` / `tour-moon.jpg` / `tour-deepspace.jpg`
