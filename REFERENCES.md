@@ -23,7 +23,17 @@
 | requestAnimationFrame | 헤더·여행 과정·hero 패럴랙스·고도 계기판·워프 별을 한 루프에서 계산, 카운트업 | https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame |
 | 스크롤 위치 연동 (`scrollY`, scroll 이벤트) | 고도 계기판 보간, 워프 속도(스크롤 거리/시간), 패럴랙스, 여행 과정 진행선과 로켓 | https://developer.mozilla.org/en-US/docs/Web/API/Window/scrollY |
 | `offsetTop` / `offsetParent` 로 위치 측정 후 캐시 | 매 프레임 레이아웃을 읽지 않도록 위치를 한 번 재서 저장 (등장 효과의 변형에 영향받지 않음) | https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/offsetTop |
-| Canvas 2D API | hero 별 배경(반짝임·흐름·별똥별·워프 선) | https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial |
+| Canvas 2D API | hero 별 배경(반짝임·흐름·별똥별·워프 선)과 나선 은하(WebGL 없이 2D canvas만 사용) | https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial |
+| 로그 나선 (수학) | hero 나선 은하의 팔: 각도 θ = ln(1 + K·r) / b 로 반지름 r 에 따라 각도를 정하고, 팔마다 2π/4 씩 돌려 놓음 | https://en.wikipedia.org/wiki/Logarithmic_spiral |
+| 파티클 시스템 | hero 은하 입자 약 4,000개(모바일 2,000개): 입자마다 위치·크기·밝기를 갖고 프레임마다 갱신. 중심은 촘촘하게(r을 거듭제곱), 가장자리는 성기게 | https://en.wikipedia.org/wiki/Particle_system , https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Basic_animations |
+| 마우스·터치 반응 (`pointermove`, `touchmove`) | 포인터 가까이의 입자를 거리에 비례해 밀어내고, 지수 감쇠(`Math.exp(-dt*k)`)로 천천히 제자리로 되돌림 | https://developer.mozilla.org/en-US/docs/Web/API/Element/pointermove_event , https://developer.mozilla.org/en-US/docs/Web/API/Touch_events |
+| 회전 행렬 | 회전 → 납작하게(기울어진 원판) → 기울이기 → 확대를 2×2 행렬 하나로 합쳐 입자마다 곱셈 4번으로 위치 계산 | https://en.wikipedia.org/wiki/Rotation_matrix |
+| 타입 배열 (`Float32Array`, `Int32Array`) | 입자 수천 개의 좌표·크기·밀려난 거리를 가볍게 저장 | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray |
+| `globalCompositeOperation = 'lighter'` | 입자가 겹칠수록 밝아지게 해 은하 중심이 빛나는 효과 | https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation |
+| `createRadialGradient()` | 은하 중심부의 은은한 광휘 | https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createRadialGradient |
+| `devicePixelRatio` 상한 2 | 고해상도 화면에서도 canvas 픽셀 수가 과하게 늘지 않도록 제한 | https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio |
+| 균등 난수의 합으로 정규분포 근사 | 나선 팔의 폭(퍼짐)을 팔 중심에 몰리게 하는 난수 (난수 3개의 합) | https://en.wikipedia.org/wiki/Irwin%E2%80%93Hall_distribution |
+| 프레임 시간 기반 적응형 품질 | 프레임이 20ms 를 넘는 상태가 1.2초 이어지면 입자 수를 25%씩 줄임(최소 800개) | https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame |
 | ResizeObserver | 화면 크기 변화에 맞춘 canvas 크기 조정, 본문 높이가 바뀔 때 위치 재측정 | https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver |
 | Page Visibility API (`visibilitychange`) | 탭이 안 보일 때 별 애니메이션 정지 | https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API |
 | `matchMedia()` | `prefers-reduced-motion` 확인, 데스크톱 폭 전환 감지 | https://developer.mozilla.org/en-US/docs/Web/API/Window/matchMedia |

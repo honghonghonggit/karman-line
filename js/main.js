@@ -5,7 +5,7 @@
    2. 측정(레이아웃 읽기)    3. 매 프레임 처리: 헤더·여행 과정·hero 패럴랙스·고도 계기판
    4. 스크롤 등장 효과      5. 수치 카운트업        6. 현재 섹션 표시
    7. 부드러운 앵커 이동     8. 모바일 메뉴          9. 예약 폼 검증과 접수 확인창
-   10. hero 별 배경(워프)    11. hero 제목 글자 등장  12. 여행 과정 로켓
+   10. hero 별 배경·나선 은하·워프  11. hero 제목 글자 등장  12. 여행 과정 로켓
    13. 갤러리 라이트박스     14. 실행
    ========================================================================== */
 (() => {
@@ -743,8 +743,11 @@
 
 
   /* ========================================================================
-     10. hero 별 배경 — canvas 로 반짝이며 천천히 움직이는 별 + 워프
+     10. hero 별 배경 — canvas 로 반짝이며 천천히 움직이는 별 + 나선 은하 + 워프
      - 별 좌표는 0~1 비율로 저장해 두어, 화면 크기가 바뀌어도 별이 다시 뿌려지지 않는다.
+     - 나선 은하: 로그 나선 팔 4개 + 밝은 중심(bulge) + 성긴 바깥(halo) 입자 약 4,000개(모바일 2,000개).
+       천천히 회전하고, 마우스(터치) 근처 입자는 밀려났다가 돌아온다. 스크롤하면 확대되고 기울어진다.
+       프레임이 느려지면 입자 수를 자동으로 줄인다. 2D canvas 만 쓴다(WebGL·라이브러리 없음).
      - 스크롤 속도(dy/dt)에 비례해 별이 세로로 길게 늘어나며 빠르게 지나가고(워프),
        멈추면 천천히 원래 점으로 돌아온다.
      - 탭이 안 보이거나 hero 가 화면 밖이면 계산하지 않는다. 모션 줄이기면 정지된 별 한 장면만 그린다.
@@ -772,6 +775,20 @@
     let warp = 0;       // 0(점) ~ 1(가장 길게 늘어남)
     let warpDir = 1;    // 스크롤 방향: 아래로 내리면 별은 위로 흐르고 꼬리는 아래로 길어진다
 
+    // --- 나선 은하 설정 ---
+    const isSmall = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches; // 모바일·터치 기기는 처음부터 절반
+    const GALAXY_MAX = isSmall ? 2000 : 4000;
+    const GALAXY_MIN = 800;
+    const PUSH_RADIUS = isSmall ? 80 : 120; // 마우스가 입자를 밀어내는 반경(px)
+    // 색: 흰색, 청록(포인트색), 하늘색, 중심부의 옅은 따뜻한 흰색 / 밝기 단계(알파)
+    const GAL_COLORS = ['255,255,255', '95,212,232', '150,200,255', '255,236,214'];
+    const GAL_ALPHAS = [0.2, 0.36, 0.58, 0.88];
+    let galaxy = null;
+    let galaxyActive = GALAXY_MAX; // 지금 그리는 입자 수 (느려지면 줄어든다)
+    let frameAvg = 16;             // 프레임 시간(ms)의 이동 평균
+    let slowTime = 0;              // 20ms 를 넘는 상태가 이어진 시간(초)
+    const pointer = { x: 0, y: 0, active: false };
+
     function starCount() {
       return clamp(Math.round((width * height) / 3600), 90, 420);
     }
@@ -790,6 +807,178 @@
           tint: TINTS[Math.floor(Math.random() * TINTS.length)]
         };
       });
+    }
+
+    // 은하 입자 만들기: 좌표는 반지름 1 인 원판 안의 값(-1~1)으로 저장하고, 그릴 때 화면 크기로 늘린다
+    function createGalaxy() {
+      const ARMS = 4;      // 나선 팔 개수
+      const WIND = 0.5;    // 로그 나선의 감김 정도 (클수록 팔이 덜 감긴다)
+      const K = 9;         // 바깥으로 갈수록 각도가 변하는 속도
+      const n = GALAXY_MAX;
+      const g = {
+        x: new Float32Array(n), y: new Float32Array(n), size: new Float32Array(n),
+        ox: new Float32Array(n), oy: new Float32Array(n), // 마우스에 밀려난 정도(px)
+        disturbed: false, lists: [], styles: []
+      };
+      const buckets = Array.from({ length: GAL_COLORS.length * GAL_ALPHAS.length }, () => []);
+      // 정규분포 비슷한 난수: 균등 난수 3개의 합 (중심극한정리), 대략 -1 ~ 1
+      const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+
+      for (let i = 0; i < n; i++) {
+        const roll = Math.random();
+        let r;
+        let theta;
+        let color;
+
+        if (roll < 0.7) {
+          // 나선 팔: 로그 나선 θ = ln(1 + K·r) / WIND, 팔마다 2π/ARMS 만큼 돌려 놓는다. 안쪽에 몰리도록 r 을 거듭제곱
+          r = 0.02 + Math.pow(Math.random(), 1.7) * 0.98;
+          const arm = Math.floor(Math.random() * ARMS);
+          theta = (arm * 2 * Math.PI) / ARMS + Math.log(1 + r * K) / WIND + gauss() * (0.16 + 0.3 * r);
+          const c = Math.random();
+          color = c < 0.4 ? 0 : c < 0.75 ? 1 : 2;
+        } else if (roll < 0.9) {
+          // 중심부(bulge): 가운데에 촘촘하게 뭉친 입자
+          r = Math.min(Math.abs(gauss()) * 0.22, 0.45);
+          theta = Math.random() * Math.PI * 2;
+          color = Math.random() < 0.5 ? 3 : 0;
+        } else {
+          // 바깥 후광(halo): 팔과 상관없이 성기게 흩어진 입자
+          r = 0.15 + Math.random() * 0.85;
+          theta = Math.random() * Math.PI * 2;
+          color = Math.random() < 0.5 ? 0 : 2;
+        }
+
+        g.x[i] = r * Math.cos(theta);
+        g.y[i] = r * Math.sin(theta);
+        g.size[i] = (0.9 + Math.pow(Math.random(), 3) * 1.8) * (isSmall ? 1.2 : 1);
+
+        // 중심에 가까울수록 밝게
+        const brightness = clamp(0.95 - r * 0.85 + (Math.random() - 0.5) * 0.35, 0.05, 0.999);
+        const level = Math.floor(brightness * GAL_ALPHAS.length);
+        buckets[color * GAL_ALPHAS.length + level].push(i);
+      }
+
+      // 같은 색·밝기끼리 묶어 두면 fillStyle 을 버킷마다 한 번만 바꾸면 된다 (입자마다 바꾸면 느리다)
+      g.lists = buckets.map((list) => Int32Array.from(list));
+      g.styles = [];
+      GAL_COLORS.forEach((c) => GAL_ALPHAS.forEach((a) => g.styles.push(`rgba(${c},${a})`)));
+      galaxy = g;
+    }
+
+    // 은하 그리기. dt === 0 이면 정지된 한 장면(회전·마우스 반응 없음)
+    function drawGalaxy(dt) {
+      if (!galaxy) return;
+      const g = galaxy;
+      const animate = dt > 0;
+
+      // 스크롤하면 커지고(zoom) 더 누워(flat) 비스듬히 기울어진다(tilt)
+      const p = clamp(view.y / Math.max(cache.heroHeight, 1), 0, 1);
+      const zoom = 1 + p * 0.9;
+      const flat = 0.58 - p * 0.28;
+      const tilt = -0.38 - p * 0.5;
+      const spin = clock * 0.05; // 회전각(rad). clock 은 애니메이션 중에만 증가한다
+
+      // 회전(spin) → 납작하게(flat) → 기울이기(tilt) → 확대를 한 번에 합친 2×2 행렬: 입자마다 곱셈 4번이면 된다
+      const ca = Math.cos(tilt);
+      const sa = Math.sin(tilt);
+      const cd = Math.cos(spin);
+      const sd = Math.sin(spin);
+      const radius = Math.min(width, height * 1.5) * (isSmall ? 0.66 : 0.62) * zoom;
+      const m11 = (ca * cd - sa * flat * sd) * radius;
+      const m12 = (-ca * sd - sa * flat * cd) * radius;
+      const m21 = (sa * cd + ca * flat * sd) * radius;
+      const m22 = (-sa * sd + ca * flat * cd) * radius;
+      const cx = width * (isSmall ? 0.5 : 0.8);
+      const cy = height * (isSmall ? 0.1 : 0.36);
+
+      // 마우스(터치) 위치: hero 는 문서 맨 위에 있으므로 canvas 좌표 = (clientX, clientY + scrollY)
+      const pointerOn = animate && pointer.active;
+      const my = pointer.y + view.y;
+      const track = animate && (pointerOn || g.disturbed);
+      const decay = Math.exp(-dt * 2.4); // 밀려난 입자가 원래 자리로 돌아오는 속도
+      const pushRadius2 = PUSH_RADIUS * PUSH_RADIUS;
+      let maxOffset = 0;
+
+      // 워프 중에는 입자도 스크롤 방향으로 길어진다
+      const stretch = warp > 0.04 ? warp * 12 : 0;
+
+      ctx.globalCompositeOperation = 'lighter'; // 겹칠수록 밝아져 중심부가 빛난다
+
+      // 중심부의 은은한 광휘: 같은 기울기로 납작하게 눌러 은하 면과 맞춘다
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(tilt);
+      ctx.scale(1, flat);
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.4);
+      glow.addColorStop(0, 'rgba(190,235,255,0.34)');
+      glow.addColorStop(0.45, 'rgba(95,212,232,0.12)');
+      glow.addColorStop(1, 'rgba(95,212,232,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(-radius * 0.4, -radius * 0.4, radius * 0.8, radius * 0.8);
+      ctx.restore();
+
+      for (let b = 0; b < g.lists.length; b++) {
+        const list = g.lists[b];
+        ctx.fillStyle = g.styles[b];
+        for (let k = 0; k < list.length; k++) {
+          const i = list[k];
+          if (i >= galaxyActive) continue; // 성능 때문에 줄인 입자는 건너뜀
+
+          const x0 = g.x[i];
+          const y0 = g.y[i];
+          let sx = cx + m11 * x0 + m12 * y0;
+          let sy = cy + m21 * x0 + m22 * y0;
+
+          if (track) {
+            let ox = g.ox[i];
+            let oy = g.oy[i];
+            if (pointerOn) {
+              const dx = sx + ox - pointer.x;
+              const dy = sy + oy - my;
+              const d2 = dx * dx + dy * dy;
+              if (d2 < pushRadius2) {
+                const d = Math.sqrt(d2) + 0.001;
+                const f = 1 - d / PUSH_RADIUS;     // 가까울수록 세게 (0~1)
+                const push = (f * f * dt * 260) / d;
+                ox += dx * push;
+                oy += dy * push;
+              }
+            }
+            ox *= decay;
+            oy *= decay;
+            g.ox[i] = ox;
+            g.oy[i] = oy;
+            sx += ox;
+            sy += oy;
+            const offset = ox * ox + oy * oy;
+            if (offset > maxOffset) maxOffset = offset;
+          }
+
+          const size = g.size[i];
+          ctx.fillRect(sx, stretch && warpDir < 0 ? sy - stretch : sy, size, size + stretch);
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // 다 돌아올 때까지만 오프셋 계산을 계속한다
+      if (track) g.disturbed = pointerOn || maxOffset > 0.01;
+    }
+
+    // 프레임이 느리면(20ms 초과가 1.2초 이어지면) 입자를 25% 줄인다 (최소 800개)
+    function adaptGalaxyQuality(dt) {
+      frameAvg += (dt * 1000 - frameAvg) * 0.1;
+      if (frameAvg > 20) {
+        slowTime += dt;
+        if (slowTime > 1.2 && galaxyActive > GALAXY_MIN) {
+          galaxyActive = Math.max(GALAXY_MIN, Math.floor(galaxyActive * 0.75));
+          canvas.dataset.particles = String(galaxyActive);
+          slowTime = 0;
+          frameAvg = 16;
+        }
+      } else {
+        slowTime = Math.max(0, slowTime - dt);
+      }
     }
 
     function resize() {
@@ -831,6 +1020,8 @@
         if (dy !== 0) warpDir = dy > 0 ? 1 : -1;
       }
       const streaking = warp > 0.04;
+
+      drawGalaxy(dt); // 별보다 먼저(뒤에) 그린다
 
       for (const s of stars) {
         // 천천히 왼쪽으로 흐르고, 화면 끝에서 반대편으로 다시 들어온다
@@ -905,6 +1096,7 @@
     steps.push((dt, dy, motion) => {
       if (!motion || !heroVisible || document.hidden) return false;
       clock += dt;
+      adaptGalaxyQuality(dt);
       nextMeteorIn -= dt;
       if (nextMeteorIn <= 0) {
         spawnMeteor();
@@ -921,6 +1113,29 @@
         draw(0, 0); // 멈춘 상태에서는 정지된 별 한 장면
       }
     }
+
+    // 마우스·터치 위치: hero 가 화면 밖일 때는 step 이 멈춰 있으므로 값만 기억해 둔다
+    window.addEventListener('pointermove', (event) => {
+      if (event.pointerType !== 'mouse' || prefersReducedMotion()) return;
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.active = true;
+    }, { passive: true });
+    document.documentElement.addEventListener('mouseleave', () => { pointer.active = false; });
+
+    const onTouch = (event) => {
+      if (prefersReducedMotion() || event.touches.length === 0) return;
+      pointer.x = event.touches[0].clientX;
+      pointer.y = event.touches[0].clientY;
+      pointer.active = true;
+    };
+    window.addEventListener('touchstart', onTouch, { passive: true });
+    window.addEventListener('touchmove', onTouch, { passive: true });
+    window.addEventListener('touchend', () => { pointer.active = false; }, { passive: true });
+    window.addEventListener('touchcancel', () => { pointer.active = false; }, { passive: true });
+
+    createGalaxy();
+    canvas.dataset.particles = String(galaxyActive);
 
     new ResizeObserver(resize).observe(host);
     document.addEventListener('visibilitychange', sync);
