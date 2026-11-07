@@ -1,10 +1,12 @@
-# Kármán Line — 우주 관광 기업 홈페이지 (HTML 단계)
+# Kármán Line — 우주 관광 기업 홈페이지 (CSS·JavaScript 단계)
 
 ## 프로젝트 개요
 
-대학 웹프로그래밍 수업 과제(Report02)로 제작하는 가상 우주 관광 기업 **Kármán Line**의 홈페이지다.
-스크롤형 **원페이지** 구조이며, 이번 단계에서는 **HTML 마크업만** 작성한다.
-이후 과제에서 같은 파일에 CSS와 JavaScript를 단계적으로 추가할 예정이므로, 지금은 그 확장을 염두에 둔 **구조 설계와 클래스 네이밍**이 핵심이다.
+대학 웹프로그래밍 수업 과제로 제작하는 가상 우주 관광 기업 **Kármán Line**의 홈페이지다.
+스크롤형 **원페이지** 구조이며, 단계별로 같은 프로젝트를 발전시킨다.
+
+- Report02: HTML 마크업만 작성 (git 태그 `report02`로 보존)
+- Report03(현재): 기존 `index.html`에 CSS와 JavaScript를 추가해 "실제 우주 관광 기업 사이트처럼 보이는, 세련되고 몰입감 있는 원페이지"로 완성
 
 - 회사명: Kármán Line (카르만 라인)
 - 슬로건: 고도 100km, 우주가 시작되는 곳
@@ -12,16 +14,27 @@
 
 ---
 
-## 절대 규칙 (반드시 지킬 것)
+## 기술 규칙 (반드시 지킬 것)
 
-1. **CSS 금지** — `<style>` 태그, `style` 속성, 외부 CSS 링크(`<link rel="stylesheet">`) 모두 사용하지 않는다.
-2. **JavaScript 금지** — `<script>` 태그, `onclick` 등 인라인 이벤트 속성을 사용하지 않는다.
-3. **외부 라이브러리·CDN 금지** — 폰트, 아이콘, 프레임워크 등 어떤 외부 리소스도 불러오지 않는다.
-4. 결과물은 **브라우저 기본 스타일 그대로** 렌더링되는 흰 페이지가 정상이다. 보기 좋게 만들려고 스타일을 넣지 말 것.
-5. 언어는 **한국어**(`<html lang="ko">`), 인코딩은 **UTF-8**.
-6. 과제 결과물이므로 **교재 수준의 기본 HTML 태그** 위주로 작성한다. 과도하게 현학적인 마크업은 피한다.
+1. **순수 HTML/CSS/JavaScript만** 사용한다. 프레임워크·라이브러리·빌드 도구 금지(GSAP, jQuery, Tailwind 등). 웹폰트는 Google Fonts **1~2종**만 허용한다.
+2. 파일 구성은 `css/style.css`, `js/main.js`. **인라인 `style` 속성과 인라인 스크립트(`<script>` 본문, `onclick` 등)는 쓰지 않는다.**
+3. `index.html`은 최대한 유지한다. CSS/JS 연결, 효과에 꼭 필요한 요소·class 추가 정도만 허용하고, **기존 id/class와 섹션 구조·내용은 바꾸지 않는다.** 미리 잡아둔 id/class(`inner-menu`, `hero-background`, `stat-number`, `tour-card`, `journey-step` 등)를 최대한 활용한다.
+4. **JS가 꺼져 있어도 모든 내용이 보여야 한다.** 숨겼다가 나타나는 효과는 JS가 `<html>`에 `js` class를 붙였을 때만 적용한다.
+5. `prefers-reduced-motion`이 켜져 있으면 애니메이션을 끄거나 최소화한다.
+6. 모바일(360px)부터 데스크톱까지 **가로 스크롤 없이** 동작하는 반응형으로 만든다.
+7. 색상·간격·폰트는 `:root` CSS 변수로 관리하고, CSS와 JS 모두 **섹션별 한국어 주석**을 단다.
+8. 언어는 **한국어**(`<html lang="ko">`), 인코딩은 **UTF-8**.
+9. 과제 결과물이므로 **교재 수준의 기본 HTML 태그** 위주로 작성한다. 과도하게 현학적인 마크업은 피한다.
+10. 교재(HTML5 웹 프로그래밍 입문) 범위를 벗어나는 기법(IntersectionObserver, canvas 애니메이션, `backdrop-filter`, `prefers-reduced-motion` 등)은 `REFERENCES.md`에 기법 이름·사용 위치·참고 출처(MDN 등)를 표로 정리한다.
 
-> 이번 단계의 평가 포인트는 화려함이 아니라 **시맨틱 태그를 목적에 맞게 썼는가**, **영역 분할이 논리적인가**, **나중에 스타일을 입힐 준비가 되어 있는가** 세 가지다.
+### 디자인 방향
+- 깊은 남색~검정 우주 테마. 포인트 색은 1~2개(대기층 같은 청록/하늘색 중심)만 쓴다.
+- 섹션 순서가 지구 → 심우주이므로, 아래로 갈수록 배경이 조금씩 더 깊고 어두워진다.
+
+### JavaScript 기능 목록
+hero 별 canvas / 스크롤 등장 효과 / 수치 카운트업 / 여행 과정 단계 강조·진행 막대 / 현재 섹션 내비 표시·부드러운 앵커 스크롤 / 모바일 햄버거 메뉴 / 예약 폼 검증과 접수 확인창 / 맨 위로 가기 버튼
+
+> 평가 포인트는 **시맨틱 태그를 목적에 맞게 썼는가**, **영역 분할이 논리적인가**, **HTML·CSS·JS 역할이 깔끔히 분리되어 있는가**, **접근성·반응형을 지켰는가**이다.
 
 ---
 
@@ -29,9 +42,12 @@
 
 ```
 karman-line/
-├── index.html          ← 작성 대상 (유일한 HTML 파일)
+├── index.html          ← 유일한 HTML 파일
+├── css/style.css       ← 전체 스타일
+├── js/main.js          ← 전체 스크립트
 ├── images/             ← NASA 이미지 라이브러리에서 받은 우주 사진 11장
 │   └── CREDITS.md      ← 파일별 NASA ID·원본 URL·크레딧 정리표
+├── REFERENCES.md       ← 교재 범위를 벗어나는 기법의 출처 정리
 └── CLAUDE.md
 ```
 
@@ -44,7 +60,7 @@ karman-line/
   - `tour-suborbital.jpg` / `tour-orbital.jpg` / `tour-moon.jpg` / `tour-deepspace.jpg`
   - `gallery-01.jpg` ~ `gallery-06.jpg`
 - 모든 `<img>`에는 의미 있는 `alt` 속성을 반드시 넣는다.
-- 히어로 배경의 별·성운처럼 **분위기를 만드는 요소는 이미지로 넣지 않는다**. 다음 과제에서 CSS·JS로 직접 그릴 예정이므로, 해당 자리에는 클래스만 부여한 빈 컨테이너를 둔다.
+- 히어로 배경의 별·성운처럼 **분위기를 만드는 요소는 이미지로 넣지 않는다**. `div.hero-background`에 JS(canvas)와 CSS로 직접 그린다.
 
 ---
 
@@ -75,18 +91,18 @@ div#page-wrapper
 ### nav#main-navigation
 - `ul.outer-menu` > `li.outer-menu-item` 구조.
 - 메뉴 항목: 소개(`#about`), 투어 상품(`#tours`), 여행 과정(`#journey`), 갤러리(`#gallery`), FAQ(`#faq`), 예약(`#booking`).
-- **투어 상품 항목만** 하위 메뉴(`ul.inner-menu`)를 중첩해 네 가지 상품으로 연결한다. 다음 과제에서 드롭다운으로 만들 자리다.
+- **투어 상품 항목만** 하위 메뉴(`ul.inner-menu`)를 중첩해 네 가지 상품으로 연결한다. 데스크톱에서는 hover/focus 드롭다운, 모바일에서는 햄버거 메뉴 안에 펼쳐진다.
 - 링크는 모두 페이지 내 앵커(`href="#섹션id"`).
 
 ### section#hero
 - 대표 문구(`h2`)와 짧은 소개 문장(`p`), `a.btn-primary`로 `#booking` 연결.
-- `div.hero-background` 를 빈 컨테이너로 두어 이후 별·은하 그래픽 자리를 확보한다.
+- `div.hero-background`는 HTML에서는 빈 컨테이너로 두고, JS가 그 안에 별 canvas를 만든다.
 - `hero-earth.jpg` 이미지 1장 사용.
 
 ### section#about
 - 회사 소개 문단 2~3개.
 - 주요 수치는 `ul.stat-list` > `li.stat-item` 구조로, 숫자는 `strong.stat-number`로 감싼다(이후 JS 카운트업 대상).
-  - 누적 탑승객 1,240명 / 무사고 비행 87회 / 최고 도달 고도 384,400km / 설립 2031년
+  - 누적 탑승객 480명 / 무사고 비행 87회 / 최고 도달 고도 384,400km / 설립 2021년
 
 ### section#tours
 - 상품 4개를 각각 `<article class="tour-card">`로 작성. 고도 순으로 배치한다.
@@ -105,7 +121,7 @@ div#page-wrapper
 ### section#journey
 - 신청부터 귀환까지의 과정을 `<ol class="journey-step">`으로 작성.
 - 단계: 상담 및 신청 → 신체검사 → 사전 훈련 → 발사 → 우주 체류 → 귀환 및 수료.
-- 각 `li` 안에 `h3`와 설명 `p`. 이후 스티키 스크롤 효과를 적용할 영역이다.
+- 각 `li` 안에 `h3`와 설명 `p`. 스크롤 위치에 따라 단계가 차례로 강조되고 진행 막대가 차오른다.
 
 ### section#gallery
 - `figure.gallery-item` 6개를 나열. 각 `figure`는 `img` + `figcaption`을 갖는다.
@@ -143,8 +159,10 @@ div#page-wrapper
 
 ## 작업 완료 후 확인
 
-- [ ] `<style>`, `style=`, `<script>`, 외부 링크가 하나도 없는가
+- [ ] `<style>`, `style=`, 인라인 `<script>`, `onclick` 등 인라인 이벤트 속성이 하나도 없는가
+- [ ] 외부 리소스가 Google Fonts 1~2종뿐인가(라이브러리·CDN 없음)
 - [ ] 모든 `img`에 `alt`이 있는가
 - [ ] 모든 폼 입력에 `label`이 연결되어 있는가
 - [ ] 네비게이션 링크가 실제 섹션 `id`와 전부 일치하는가
-- [ ] 브라우저에서 열었을 때 콘솔 오류 없이 위에서 아래로 내용이 읽히는가
+- [ ] 브라우저(데스크톱·360px 모바일)에서 콘솔 오류, 가로 스크롤, 레이아웃 깨짐이 없는가
+- [ ] JS를 끄거나 `prefers-reduced-motion`을 켜도 모든 내용이 보이는가

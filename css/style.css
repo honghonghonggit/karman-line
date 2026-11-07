@@ -1,0 +1,1520 @@
+/* ==========================================================================
+   Kármán Line — style.css (Report03)
+   구성
+   1. 변수          2. 기본 설정        3. 헤더·내비게이션   4. 히어로
+   5. 공통 섹션     6. 소개(about)      7. 투어 상품         8. 상품 비교표
+   9. 여행 과정     10. 갤러리          11. FAQ              12. 예약 폼
+   13. 접수 확인창  14. 푸터            15. 맨 위로 버튼     16. 스크롤 등장 효과
+   17. 반응형       18. 모션 줄이기
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. 변수 — 색상·폰트·간격은 모두 여기서 관리
+   ========================================================================== */
+:root {
+  /* 배경: 지구에서 멀어질수록 깊어지는 남색 → 검정 */
+  --color-bg-0: #0b1f44;
+  --color-bg-1: #07142e;
+  --color-bg-2: #030814;
+  --color-bg-3: #010104;
+
+  /* 글자 */
+  --color-text: #e8eef8;
+  --color-text-muted: #a9b7cf;
+
+  /* 포인트 색: 대기층 청록 + 아주 조금 쓰는 따뜻한 지평선 색 */
+  --color-accent: #5fd4e8;
+  --color-accent-strong: #3b8ff0;
+  --color-accent-soft: rgba(95, 212, 232, 0.14);
+  --color-warm: #ffb072;
+
+  /* 면·선 */
+  --color-surface: rgba(255, 255, 255, 0.045);
+  --color-surface-strong: rgba(255, 255, 255, 0.08);
+  --color-line: rgba(160, 200, 255, 0.16);
+  --color-danger: #ff8f8f;
+
+  /* 폰트 */
+  --font-base: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Noto Sans KR", system-ui, sans-serif;
+
+  /* 간격·크기 */
+  --header-h: 64px;
+  --gutter: clamp(1.25rem, 5vw, 3rem);
+  --maxw: 1200px;
+  --inline: max(var(--gutter), calc((100% - var(--maxw)) / 2));
+  --section-pad: clamp(4.5rem, 10vw, 8.5rem);
+  --radius: 16px;
+
+  /* 움직임 */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  color-scheme: dark;
+}
+
+
+/* ==========================================================================
+   2. 기본 설정
+   ========================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: var(--header-h);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-3);
+  color: var(--color-text);
+  font-family: var(--font-base);
+  font-size: 1rem;
+  line-height: 1.75;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 페이지 전체 배경: 위(지구 근처)에서 아래(심우주)로 점점 어두워지는 그라데이션 + 희미한 별 */
+#page-wrapper {
+  overflow-x: clip;
+  background-color: var(--color-bg-3);
+  background-image:
+    radial-gradient(1px 1px at 40px 60px, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 170px 120px, rgba(190, 225, 255, 0.45), transparent),
+    radial-gradient(1.5px 1.5px at 90px 210px, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 260px 40px, rgba(255, 230, 200, 0.4), transparent),
+    linear-gradient(180deg, var(--color-bg-0) 0, var(--color-bg-1) 14%, var(--color-bg-2) 42%, var(--color-bg-3) 75%);
+  background-size: 310px 290px, 470px 410px, 610px 530px, 370px 330px, 100% 100%;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+h1, h2, h3 {
+  line-height: 1.25;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #02101c;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* 앵커 이동 후 포커스가 간 섹션에는 윤곽선을 표시하지 않음 */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+
+/* ==========================================================================
+   3. 헤더·내비게이션 — 상단 고정, 스크롤하면 반투명 블러 배경
+   ========================================================================== */
+
+/* 헤더와 내비게이션이 함께 쓰는 배경 막대 (스크롤 전에는 투명) */
+#page-wrapper::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-h);
+  z-index: 99;
+  background-color: rgba(3, 8, 20, 0);
+  border-bottom: 1px solid transparent;
+  transition: background-color 0.35s ease, border-color 0.35s ease;
+}
+
+html.is-scrolled #page-wrapper::before,
+html.menu-open #page-wrapper::before {
+  background-color: rgba(4, 10, 24, 0.62);
+  border-bottom-color: var(--color-line);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+#main-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  padding-inline: var(--gutter);
+}
+
+#main-header hgroup {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.master-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.master-description {
+  margin: 0.15rem 0 0;
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+#main-navigation {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 101;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  padding-inline: var(--gutter);
+}
+
+.outer-menu,
+.inner-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.outer-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.outer-menu-item {
+  position: relative;
+}
+
+.outer-menu-item > a {
+  display: block;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.outer-menu-item > a:hover,
+.outer-menu-item:focus-within > a,
+.outer-menu-item > a.is-active {
+  color: #fff;
+  background: var(--color-accent-soft);
+}
+
+.outer-menu-item > a.is-active {
+  color: var(--color-accent);
+}
+
+/* 하위 메뉴가 있는 항목에 작은 화살표 */
+.outer-menu-item:has(> .inner-menu) > a::after {
+  content: "";
+  display: inline-block;
+  width: 0.4em;
+  height: 0.4em;
+  margin: 0 0 0.2em 0.5em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+
+/* 마지막 항목(예약)은 버튼처럼 강조 */
+.outer-menu-item:last-child > a {
+  margin-left: 0.4rem;
+  border: 1px solid rgba(95, 212, 232, 0.5);
+  color: var(--color-accent);
+}
+
+.outer-menu-item:last-child > a:hover {
+  background: var(--color-accent);
+  color: #02101c;
+}
+
+/* 드롭다운 하위 메뉴 (데스크톱: hover/focus 시 펼침) */
+.inner-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  min-width: 13rem;
+  padding: 0.5rem;
+  background: rgba(6, 14, 32, 0.94);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+}
+
+/* 링크와 메뉴 사이 빈틈에서 hover가 끊기지 않게 하는 투명 다리 */
+.inner-menu::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -14px;
+  height: 14px;
+}
+
+.outer-menu-item:hover > .inner-menu,
+.outer-menu-item:focus-within > .inner-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.inner-menu-item a {
+  display: block;
+  padding: 0.6rem 0.9rem;
+  border-radius: 9px;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.inner-menu-item a:hover,
+.inner-menu-item a:focus-visible {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* 햄버거 버튼: JS가 켜진 모바일에서만 보임 */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.nav-toggle-icon,
+.nav-toggle-icon::before,
+.nav-toggle-icon::after {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 0.3s var(--ease), background-color 0.2s ease;
+}
+
+.nav-toggle-icon {
+  position: relative;
+}
+
+.nav-toggle-icon::before,
+.nav-toggle-icon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+}
+
+.nav-toggle-icon::before { transform: translateY(-7px); }
+.nav-toggle-icon::after  { transform: translateY(7px); }
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-icon {
+  background: transparent;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-icon::before { transform: rotate(45deg); }
+.nav-toggle[aria-expanded="true"] .nav-toggle-icon::after  { transform: rotate(-45deg); }
+
+
+/* ==========================================================================
+   4. 히어로 — 화면을 가득 채우는 첫 화면
+   ========================================================================== */
+#hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--header-h) + 2rem) var(--gutter) 7rem;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* 별 canvas가 들어가는 배경 (canvas는 JS가 생성) */
+.hero-background {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 112%, rgba(46, 110, 190, 0.6), transparent 70%),
+    radial-gradient(ellipse 55% 45% at 18% 18%, rgba(90, 60, 170, 0.2), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 8%, rgba(40, 130, 180, 0.16), transparent 70%),
+    linear-gradient(180deg, #020611 0%, var(--color-bg-0) 100%);
+}
+
+.hero-background canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 지구 대기층 사진: 검은 부분은 screen 혼합으로 사라지고 빛나는 띠만 남음 */
+.hero-figure {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  height: min(64vh, 680px);
+  margin: 0;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 38%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 38%);
+}
+
+.hero-figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 58%;
+}
+
+.hero-title {
+  max-width: 16em;
+  margin: 0 0 1.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.3rem, 7.2vw, 5.2rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  background: linear-gradient(180deg, #ffffff 30%, #a8dcf0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-text {
+  max-width: 36rem;
+  margin: 0 0 2.5rem;
+  color: var(--color-text-muted);
+  font-size: clamp(1rem, 2.2vw, 1.15rem);
+  text-wrap: pretty;
+}
+
+.btn-primary,
+.booking-form button[type="submit"],
+.booking-dialog button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.95rem 2.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
+  color: #03101f;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(95, 212, 232, 0.5), 0 10px 30px -10px rgba(59, 143, 240, 0.7);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s ease;
+}
+
+.btn-primary:hover,
+.booking-form button[type="submit"]:hover,
+.booking-dialog button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 6px rgba(95, 212, 232, 0.16), 0 16px 36px -10px rgba(59, 143, 240, 0.9);
+}
+
+/* 히어로 안의 글 내용은 배경·이미지 위에 표시 */
+#hero > :not(.hero-background):not(.hero-figure) {
+  position: relative;
+  z-index: 1;
+}
+
+
+/* ==========================================================================
+   5. 공통 섹션
+   ========================================================================== */
+main > section:not(#hero) {
+  padding: var(--section-pad) var(--inline);
+}
+
+main > section:not(#hero) > h2 {
+  position: relative;
+  margin: 0 0 1.25rem;
+  padding-top: 1.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4.5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* 제목 위의 작은 포인트 선 */
+main > section:not(#hero) > h2::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3rem;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-accent), transparent);
+}
+
+main > section:not(#hero) > h2 + p {
+  max-width: 44rem;
+  margin: 0 0 3rem;
+  color: var(--color-text-muted);
+}
+
+
+/* ==========================================================================
+   6. 소개 (about) — 본문과 큰 숫자
+   ========================================================================== */
+#about > p {
+  max-width: 46rem;
+  margin: 0 0 1.1rem;
+  color: var(--color-text-muted);
+}
+
+/* 공통 섹션 규칙(:not(#hero) 때문에 명시도가 높음)보다 뒤에서 같은 명시도로 덮어쓴다 */
+main > section#about > h2 + p {
+  margin-bottom: 1.1rem;
+}
+
+.stat-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2rem 1.5rem;
+  margin: 4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stat-item {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+}
+
+.stat-number {
+  display: inline-block;
+  margin-right: 0.15rem;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.7vw, 3.3rem);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #ffffff 20%, var(--color-accent) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+}
+
+
+/* ==========================================================================
+   7. 투어 상품 — 카드 그리드 (4열 / 2열 / 1열)
+   ========================================================================== */
+#tours {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+#tours > h2,
+#tours > h2 + p {
+  grid-column: 1 / -1;
+}
+
+main > section#tours > h2 + p {
+  margin-bottom: 1.5rem;
+}
+
+.tour-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  transition: transform 0.35s var(--ease), border-color 0.35s ease, box-shadow 0.35s ease, background-color 0.35s ease;
+}
+
+.tour-card:hover,
+.tour-card:focus-within {
+  transform: translateY(-8px);
+  background: var(--color-surface-strong);
+  border-color: rgba(95, 212, 232, 0.5);
+  box-shadow: 0 26px 50px -22px rgba(0, 0, 0, 0.9), 0 0 40px -12px rgba(95, 212, 232, 0.3);
+}
+
+.tour-card figure {
+  margin: 0;
+  overflow: hidden;
+}
+
+.tour-card figure img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  transition: transform 0.7s var(--ease);
+}
+
+.tour-card:hover figure img {
+  transform: scale(1.06);
+}
+
+.tour-card figcaption {
+  padding: 0.6rem 1.25rem 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+/* :where() 는 명시도가 0 이라 아래 .tour-summary 등의 margin 설정이 덮어쓰이지 않는다 */
+.tour-card > :where(:not(figure)) {
+  margin: 0;
+  padding-inline: 1.25rem;
+}
+
+.tour-title {
+  padding-top: 1rem;
+  font-size: 1.35rem;
+}
+
+.tour-summary {
+  margin-top: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+}
+
+.tour-feature {
+  margin-top: 1rem;
+  margin-bottom: 1.25rem;
+  list-style: none;
+  font-size: 0.88rem;
+}
+
+.tour-feature li {
+  position: relative;
+  padding-left: 1.1rem;
+  margin-bottom: 0.3rem;
+}
+
+.tour-feature li::before {
+  content: "";
+  position: absolute;
+  top: 0.72em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.tour-price {
+  margin-top: auto;
+  padding-block: 1rem 1.3rem;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-warm);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+
+/* ==========================================================================
+   8. 상품 비교표
+   ========================================================================== */
+.compare-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+
+.compare-table caption {
+  padding-bottom: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+  text-align: left;
+}
+
+.compare-table thead th {
+  background: rgba(95, 212, 232, 0.1);
+  color: #fff;
+  font-weight: 700;
+}
+
+.compare-table tbody th {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.compare-table tbody tr:last-child th,
+.compare-table tbody tr:last-child td {
+  border-bottom: 0;
+  color: var(--color-warm);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.compare-table tbody tr:hover > * {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+
+/* ==========================================================================
+   9. 여행 과정 — 세로 타임라인 + 진행 막대 (진행 값은 JS가 변수로 전달)
+   ========================================================================== */
+.journey-step {
+  --step-size: 2.8rem;
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 4.5rem;
+  list-style: none;
+  counter-reset: step;
+}
+
+/* 바탕 선(::before)과 차오르는 진행 선(::after) */
+.journey-step::before,
+.journey-step::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--step-size) / 2);
+  left: calc(var(--step-size) / 2 - 1px);
+  width: 2px;
+}
+
+.journey-step::before {
+  height: var(--journey-track, calc(100% - var(--step-size)));
+  background: var(--color-line);
+}
+
+.journey-step::after {
+  height: var(--journey-fill, 0px);
+  background: linear-gradient(180deg, var(--color-accent), var(--color-accent-strong));
+  box-shadow: 0 0 14px rgba(95, 212, 232, 0.7);
+}
+
+.journey-step > li {
+  position: relative;
+  padding-bottom: 3.5rem;
+  counter-increment: step;
+  transition: opacity 0.5s ease;
+}
+
+.journey-step > li:last-child {
+  padding-bottom: 0;
+}
+
+.journey-step > li::before {
+  content: counter(step);
+  position: absolute;
+  top: 0;
+  left: -4.5rem;
+  display: grid;
+  place-items: center;
+  width: var(--step-size);
+  height: var(--step-size);
+  border: 2px solid var(--color-line);
+  border-radius: 50%;
+  background: var(--color-bg-1);
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, transform 0.4s var(--ease);
+}
+
+.journey-step h3 {
+  margin: 0.35rem 0 0.4rem;
+  font-size: 1.4rem;
+  transition: color 0.4s ease;
+}
+
+.journey-step p {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+/* JS가 켜졌을 때만: 지나간 단계 / 현재 단계 / 아직 오지 않은 단계 구분 */
+.js .journey-step > li {
+  opacity: 0.4;
+}
+
+.js .journey-step > li.is-passed {
+  opacity: 0.8;
+}
+
+.js .journey-step > li.is-passed::before {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.js .journey-step > li.is-active {
+  opacity: 1;
+}
+
+.js .journey-step > li.is-active::before {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #02101c;
+  transform: scale(1.12);
+  box-shadow: 0 0 0 7px rgba(95, 212, 232, 0.16), 0 0 28px rgba(95, 212, 232, 0.55);
+}
+
+.js .journey-step > li.is-active h3 {
+  color: var(--color-accent);
+}
+
+
+/* ==========================================================================
+   10. 갤러리 — 6열 격자 (사진 5번은 가로로 긴 파노라마라 한 줄 전체 사용)
+   ========================================================================== */
+#gallery {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-flow: dense;
+  gap: 1rem;
+}
+
+#gallery > h2 {
+  grid-column: 1 / -1;
+}
+
+.gallery-item {
+  position: relative;
+  grid-column: span 2;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #000;
+}
+
+.gallery-item:nth-of-type(4),
+.gallery-item:nth-of-type(6) {
+  grid-column: span 3;
+}
+
+.gallery-item:nth-of-type(5) {
+  grid-column: 1 / -1;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  transition: transform 0.8s var(--ease);
+}
+
+.gallery-item:nth-of-type(5) img {
+  aspect-ratio: 2.4 / 1;
+}
+
+/* 푸른 지구는 원형 전체가 보이도록 잘라내지 않음 */
+.gallery-item:nth-of-type(1) img {
+  object-fit: contain;
+}
+
+.gallery-item:nth-of-type(3) img {
+  object-position: center 40%;
+}
+
+.gallery-item:hover img {
+  transform: scale(1.05);
+}
+
+.gallery-item figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2.8rem 1rem 0.9rem;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.85));
+  color: #dbe6f6;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+
+/* ==========================================================================
+   11. FAQ — details 아코디언
+   ========================================================================== */
+#faq > .faq-item {
+  max-width: 52rem;
+}
+
+.faq-item {
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.faq-item[open] {
+  background: var(--color-surface-strong);
+  border-color: rgba(95, 212, 232, 0.4);
+}
+
+.faq-item summary {
+  position: relative;
+  padding: 1.15rem 3.5rem 1.15rem 1.4rem;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+/* + 표시가 열리면 × 로 회전 */
+.faq-item summary::after {
+  content: "+";
+  position: absolute;
+  top: 50%;
+  right: 1.4rem;
+  margin-top: -0.8rem;
+  color: var(--color-accent);
+  font-size: 1.6rem;
+  line-height: 1.6rem;
+  transition: transform 0.3s var(--ease);
+}
+
+.faq-item[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.faq-item p {
+  margin: 0;
+  padding: 0 1.4rem 1.3rem;
+  color: var(--color-text-muted);
+  animation: faq-open 0.4s var(--ease);
+}
+
+@keyframes faq-open {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+
+/* ==========================================================================
+   12. 예약 폼
+   ========================================================================== */
+#booking > h2,
+#booking > h2 + p,
+.booking-form {
+  max-width: 52rem;
+}
+
+.booking-form fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem 1.25rem;
+  min-width: 0;
+  margin: 0 0 1.5rem;
+  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.booking-form legend {
+  padding: 0 0.75rem;
+  color: var(--color-accent);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.booking-form fieldset > p {
+  margin: 0;
+}
+
+/* 요청사항·약관 동의는 한 줄 전체 사용 */
+.booking-form fieldset > p:has(textarea),
+.booking-form fieldset > p:has(input[type="checkbox"]) {
+  grid-column: 1 / -1;
+}
+
+.booking-form label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.booking-form input[type="text"],
+.booking-form input[type="email"],
+.booking-form input[type="tel"],
+.booking-form input[type="date"],
+.booking-form input[type="number"],
+.booking-form select,
+.booking-form textarea {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: rgba(2, 6, 16, 0.7);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  color: #fff;
+  font: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.booking-form textarea {
+  resize: vertical;
+  min-height: 7rem;
+}
+
+.booking-form input::placeholder,
+.booking-form textarea::placeholder {
+  color: rgba(169, 183, 207, 0.55);
+}
+
+.booking-form input:focus,
+.booking-form select:focus,
+.booking-form textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(95, 212, 232, 0.2);
+  outline: none;
+}
+
+/* 무중력 경험 여부: fieldset 안의 fieldset */
+.booking-form .radio-group {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.6rem;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.booking-form .radio-group legend {
+  width: 100%;
+  padding: 0;
+  margin-bottom: 0.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.booking-form .radio-group label {
+  display: inline-block;
+  margin: 0 0 0 0.4rem;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.booking-form input[type="radio"],
+.booking-form input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  vertical-align: -0.15rem;
+  accent-color: var(--color-accent);
+}
+
+.booking-form p:has(input[type="checkbox"]) label {
+  display: inline;
+  margin-left: 0.5rem;
+  color: var(--color-text);
+  font-size: 0.92rem;
+}
+
+.booking-form button[type="submit"] {
+  min-width: 14rem;
+}
+
+/* 검증 오류 표시 */
+.field-error {
+  margin: 0.4rem 0 0;
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.radio-group > .field-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* 입력 칸 기본 테두리 규칙과 명시도를 맞추고 뒤에 두어 오류 색이 이기게 한다 */
+.booking-form :is(input, select, textarea).is-invalid {
+  border-color: var(--color-danger);
+}
+
+.booking-form :is(input, select, textarea).is-invalid:focus {
+  box-shadow: 0 0 0 3px rgba(255, 143, 143, 0.2);
+}
+
+
+/* ==========================================================================
+   13. 접수 확인창 — JS가 만드는 <dialog>
+   ========================================================================== */
+.booking-dialog {
+  width: min(30rem, calc(100vw - 2.5rem));
+  padding: 2.2rem 2rem 2rem;
+  background: #07122b;
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  color: var(--color-text);
+  text-align: center;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 60px -20px rgba(95, 212, 232, 0.35);
+}
+
+.booking-dialog::backdrop {
+  background: rgba(1, 3, 10, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.booking-dialog[open] {
+  animation: dialog-in 0.4s var(--ease);
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.booking-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 3.6rem;
+  height: 3.6rem;
+  margin: 0 auto 1.2rem;
+  border-radius: 50%;
+  background: var(--color-accent-soft);
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.booking-dialog h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.4rem;
+}
+
+.booking-dialog p {
+  margin: 0 0 1.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+}
+
+.booking-dialog dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1.2rem;
+  margin: 0 0 1.8rem;
+  padding: 1.1rem 1.2rem;
+  background: var(--color-surface);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.booking-dialog dt {
+  color: var(--color-text-muted);
+}
+
+.booking-dialog dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+
+/* ==========================================================================
+   14. 푸터
+   ========================================================================== */
+#main-footer {
+  padding: 3.5rem var(--inline) 5rem;
+  border-top: 1px solid var(--color-line);
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+#main-footer address {
+  margin-bottom: 1.2rem;
+  font-style: normal;
+  line-height: 1.9;
+}
+
+#main-footer p {
+  max-width: 52rem;
+  margin: 0 0 0.5rem;
+}
+
+
+/* ==========================================================================
+   15. 맨 위로 가기 버튼
+   ========================================================================== */
+.back-to-top {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgba(95, 212, 232, 0.45);
+  border-radius: 50%;
+  background: rgba(4, 10, 24, 0.7);
+  color: var(--color-accent);
+  font-size: 1.3rem;
+  text-decoration: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition: opacity 0.3s ease, visibility 0.3s, transform 0.3s var(--ease), background-color 0.2s ease, color 0.2s ease;
+}
+
+.back-to-top:hover {
+  background: var(--color-accent);
+  color: #02101c;
+}
+
+/* JS가 켜지면 평소에는 숨기고, 스크롤했을 때만 보임 */
+.js .back-to-top {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+}
+
+.js .back-to-top.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+
+/* ==========================================================================
+   16. 스크롤 등장 효과 — JS가 .js 와 .reveal 을 붙였을 때만 숨김 상태가 됨
+       (transform 은 카드 hover 가 쓰므로 개별 속성 translate 를 사용)
+   ========================================================================== */
+.js .reveal {
+  opacity: 0;
+  translate: 0 34px;
+  transition: opacity 0.9s var(--ease) var(--reveal-delay, 0s), translate 0.9s var(--ease) var(--reveal-delay, 0s);
+}
+
+.js .reveal.is-visible {
+  opacity: 1;
+  translate: 0 0;
+}
+
+/* 같은 줄에 놓인 형제들이 차례로 나타나도록 지연 시간 부여 */
+.reveal:nth-child(4n + 2) { --reveal-delay: 0.1s; }
+.reveal:nth-child(4n + 3) { --reveal-delay: 0.2s; }
+.reveal:nth-child(4n + 4) { --reveal-delay: 0.3s; }
+
+/* 카드는 등장 전환과 hover 전환을 함께 가져야 함 */
+.js .tour-card.reveal {
+  transition:
+    opacity 0.9s var(--ease) var(--reveal-delay, 0s),
+    translate 0.9s var(--ease) var(--reveal-delay, 0s),
+    transform 0.35s var(--ease),
+    border-color 0.35s ease,
+    box-shadow 0.35s ease,
+    background-color 0.35s ease;
+}
+
+
+/* ==========================================================================
+   17. 반응형
+   ========================================================================== */
+
+/* 태블릿: 카드 2열, 갤러리 2열 */
+@media (max-width: 1100px) {
+  #tours {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gallery-item,
+  .gallery-item:nth-of-type(4),
+  .gallery-item:nth-of-type(6) {
+    grid-column: span 1;
+  }
+
+  .gallery-item:nth-of-type(5) {
+    grid-column: 1 / -1;
+  }
+
+  .stat-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* 모바일 메뉴: 햄버거 버튼 + 펼쳐지는 패널 */
+@media (max-width: 900px) {
+  .js .nav-toggle {
+    display: inline-flex;
+  }
+
+  .js .outer-menu {
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    max-height: calc(100vh - var(--header-h));
+    max-height: calc(100dvh - var(--header-h));
+    padding: 0.75rem var(--gutter) 1.5rem;
+    overflow-y: auto;
+    background: rgba(4, 10, 24, 0.96);
+    border-bottom: 1px solid var(--color-line);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity 0.25s ease, transform 0.3s var(--ease), visibility 0.25s;
+  }
+
+  .js #main-navigation.is-open .outer-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .outer-menu-item > a {
+    padding: 0.8rem 0.4rem;
+    border-radius: 10px;
+    font-size: 1rem;
+  }
+
+  .outer-menu-item:last-child > a {
+    margin: 0.6rem 0 0;
+    text-align: center;
+  }
+
+  .outer-menu-item:has(> .inner-menu) > a::after {
+    display: none;
+  }
+
+  /* 모바일에서는 하위 메뉴를 드롭다운 대신 들여쓴 목록으로 항상 표시 */
+  .inner-menu {
+    position: static;
+    min-width: 0;
+    padding: 0 0 0.4rem 1rem;
+    background: none;
+    border: 0;
+    border-left: 1px solid var(--color-line);
+    border-radius: 0;
+    box-shadow: none;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .outer-menu-item:hover > .inner-menu,
+  .outer-menu-item:focus-within > .inner-menu {
+    transform: none;
+  }
+
+  .inner-menu::before {
+    display: none;
+  }
+
+  .inner-menu-item a {
+    padding: 0.55rem 0.5rem;
+    color: var(--color-text-muted);
+  }
+
+  /* JS가 꺼진 모바일: 메뉴를 헤더 아래 줄에 그대로 나열 */
+  html:not(.js) #main-navigation {
+    top: var(--header-h);
+    left: 0;
+    height: auto;
+    padding-block: 0.25rem;
+    position: absolute;
+  }
+
+  html:not(.js) .outer-menu {
+    flex-wrap: wrap;
+  }
+
+  html:not(.js) .inner-menu {
+    display: none;
+  }
+}
+
+/* 모바일: 카드 1열, 표는 표 안에서만 가로 스크롤 */
+@media (max-width: 700px) {
+  #tours {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gallery-item:nth-of-type(5) img {
+    aspect-ratio: 16 / 9;
+  }
+
+  .compare-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .compare-table tbody th {
+    position: sticky;
+    left: 0;
+    background: #0a1630;
+  }
+
+  .compare-table th,
+  .compare-table td {
+    padding: 0.85rem 1rem;
+  }
+
+  .booking-form fieldset {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1.2rem;
+  }
+
+  .booking-form button[type="submit"] {
+    width: 100%;
+  }
+
+  .journey-step {
+    padding-left: 3.7rem;
+  }
+
+  .journey-step > li::before {
+    left: -3.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .journey-step {
+    --step-size: 2.4rem;
+  }
+
+  .stat-number {
+    font-size: 1.9rem;
+  }
+
+  .stat-item {
+    font-size: 0.95rem;
+  }
+
+  .master-description {
+    font-size: 0.62rem;
+  }
+}
+
+
+/* ==========================================================================
+   18. 모션 줄이기 — 사용자가 시스템에서 애니메이션 감소를 켰을 때
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  .js .reveal {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  .tour-card:hover,
+  .tour-card:focus-within,
+  .btn-primary:hover,
+  .booking-form button[type="submit"]:hover {
+    transform: none;
+  }
+
+  .tour-card:hover figure img,
+  .gallery-item:hover img {
+    transform: none;
+  }
+}

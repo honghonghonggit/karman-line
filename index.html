@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kármán Line — 고도 100km, 우주가 시작되는 곳</title>
+
+  <!-- 웹폰트 (Google Fonts 2종: 본문 Noto Sans KR, 제목·숫자 Space Grotesk) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap">
+
+  <!-- 스타일시트와 스크립트 -->
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/main.js" defer></script>
 </head>
 <body>
   <div id="page-wrapper">
@@ -18,11 +27,15 @@
 
     <!-- 내비게이션 -->
     <nav id="main-navigation">
-      <ul class="outer-menu">
+      <!-- 모바일 햄버거 버튼 (JS가 켜졌을 때만 표시) -->
+      <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="outer-menu" aria-label="메뉴 열기">
+        <span class="nav-toggle-icon"></span>
+      </button>
+      <ul class="outer-menu" id="outer-menu">
         <li class="outer-menu-item"><a href="#about">소개</a></li>
         <li class="outer-menu-item">
           <a href="#tours">투어 상품</a>
-          <!-- 다음 과제에서 드롭다운으로 만들 하위 메뉴 -->
+          <!-- 데스크톱 드롭다운 하위 메뉴 -->
           <ul class="inner-menu">
             <li class="inner-menu-item"><a href="#tour-suborbital">카르만 라인 체험</a></li>
             <li class="inner-menu-item"><a href="#tour-orbital">궤도 호텔 3일</a></li>
@@ -373,6 +386,9 @@
       <p>이미지 출처: NASA 이미지·영상 라이브러리(images.nasa.gov). 일부 이미지는 NASA/NOAA, NASA/ESA/CSA/STScI 공동 크레딧이며, 파일별 상세 내역은 images/CREDITS.md에 정리되어 있습니다.</p>
       <p>이 웹페이지는 대학 웹프로그래밍 수업 과제를 위해 제작된 가상의 기업 홈페이지이며, 실제 상품과 서비스는 존재하지 않습니다.</p>
     </footer>
+
+    <!-- 맨 위로 가기 -->
+    <a class="back-to-top" href="#page-wrapper" aria-label="맨 위로 가기">↑</a>
 
   </div>
 </body>
