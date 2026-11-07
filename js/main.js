@@ -1,10 +1,12 @@
 /* ==========================================================================
    Kármán Line — main.js (Report03)
    구성
-   0. 공통 준비        1. 헤더·맨 위로·여행 과정 (스크롤 한 곳에서 처리)
-   2. 스크롤 등장 효과  3. 수치 카운트업      4. 현재 섹션 표시
-   5. 부드러운 앵커 이동 6. 모바일 메뉴       7. 예약 폼 검증과 접수 확인창
-   8. hero 별 배경(canvas)  9. 실행
+   0. 공통 준비            1. 프레임 루프(스크롤 계산을 한 곳에 모음)
+   2. 측정(레이아웃 읽기)    3. 매 프레임 처리: 헤더·여행 과정·hero 패럴랙스·고도 계기판
+   4. 스크롤 등장 효과      5. 수치 카운트업        6. 현재 섹션 표시
+   7. 부드러운 앵커 이동     8. 모바일 메뉴          9. 예약 폼 검증과 접수 확인창
+   10. hero 별 배경(워프)    11. hero 제목 글자 등장  12. 여행 과정 로켓
+   13. 갤러리 라이트박스     14. 실행
    ========================================================================== */
 (() => {
   'use strict';
@@ -27,96 +29,305 @@
   const prefersReducedMotion = () => motionQuery.matches;
 
   const header = $('#main-header');
+  const hero = $('#hero');
   const getHeaderHeight = () => (header ? header.offsetHeight : 0);
+
+  // 스크롤 위치·화면 높이: 매 프레임 한 번만 읽어 모든 효과가 같이 쓴다
+  const view = { y: 0, vh: window.innerHeight };
 
 
   /* ========================================================================
-     1. 스크롤 처리 — 헤더 배경 전환, 맨 위로 버튼, 여행 과정 강조
-     scroll 이벤트는 매우 자주 발생하므로 requestAnimationFrame으로
-     화면 갱신 주기마다 한 번만 계산한다.
+     1. 프레임 루프 — requestAnimationFrame 한 곳에서 모든 스크롤 효과를 계산
+     - 각 효과는 steps 에 함수로 등록한다. (dt, dy, motion) => 계속 움직여야 하면 true
+     - 스크롤이 없고 계속 움직일 것도 없으면 루프가 멈춘다. (별 애니메이션은 hero 가 보일 때만 계속)
+     - 레이아웃을 읽는 일(getBoundingClientRect 등)은 여기서 하지 않고 measure() 가 캐시한다.
+       그래서 프레임마다 강제 리플로우가 생기지 않는다.
      ======================================================================== */
-  const topButton = $('.back-to-top');
+  const steps = [];
+  let frameId = 0;
+  let lastTime = 0;
+
+  function frame(now) {
+    frameId = 0;
+    const dt = clamp((now - lastTime) / 1000, 0.001, 0.05); // 탭 복귀 직후의 큰 간격은 잘라 낸다
+    lastTime = now;
+
+    const y = window.scrollY;
+    const dy = y - view.y; // 이번 프레임에 스크롤한 거리 (워프 별의 속도 계산에 사용)
+    view.y = y;
+
+    const motion = !prefersReducedMotion();
+    let keepGoing = false;
+    for (const step of steps) {
+      if (step(dt, dy, motion)) keepGoing = true;
+    }
+    if (keepGoing) frameId = requestAnimationFrame(frame);
+  }
+
+  function requestFrame() {
+    if (frameId) return;
+    lastTime = performance.now();
+    frameId = requestAnimationFrame(frame);
+  }
+
+
+  /* ========================================================================
+     2. 측정 — 레이아웃 값은 화면 크기·내용 높이가 바뀔 때만 읽어 캐시
+     ======================================================================== */
   const journey = $('.journey-step');
   const journeySteps = journey ? $$(':scope > li', journey) : [];
 
-  // 헤더: 조금만 스크롤해도 반투명 블러 배경으로 전환
-  function updateHeader() {
-    root.classList.toggle('is-scrolled', window.scrollY > 24);
+  // 고도 계기판의 이정표: 섹션/투어 상품 id 와 그 위치에서의 고도(km)
+  const HUD_STOPS = [
+    { id: 'hero', alt: 0 },
+    { id: 'tour-suborbital', alt: 100 },     // 카르만 라인 체험
+    { id: 'tour-orbital', alt: 400 },        // 궤도 호텔
+    { id: 'tour-moon', alt: 384400 },        // 달 플라이바이
+    { id: 'tour-deepspace', alt: 1500000 }   // 딥스페이스 관측 (라그랑주점, 약 150만km)
+  ];
+
+  const cache = {
+    heroHeight: 0,
+    journey: null,   // { tops: [...], half, track }
+    anchors: []      // [{ alt, y }]
+  };
+
+  // 문서 맨 위에서 요소 윗변까지의 거리. offsetTop 은 레이아웃 값이라 translate·scale 같은
+  // 등장 효과가 걸려 있어도 영향을 받지 않는다 (getBoundingClientRect 는 변형까지 반영해 값이 흔들린다)
+  function docTop(el) {
+    let top = 0;
+    for (let node = el; node; node = node.offsetParent) top += node.offsetTop;
+    return top;
   }
 
-  // 맨 위로 가기 버튼: 한 화면 정도 내려오면 표시
-  function updateTopButton() {
-    if (topButton) {
-      topButton.classList.toggle('is-visible', window.scrollY > window.innerHeight * 0.8);
-    }
-  }
-
-  // 여행 과정: 화면 중앙선이 각 단계의 번호 원을 지날 때마다 차례로 강조하고 진행 선을 채운다
-  function updateJourney() {
-    if (!journey || journeySteps.length === 0) return;
-
-    const line = window.innerHeight * 0.55; // 기준선 (화면 위에서 55% 지점)
-    const first = journeySteps[0];
-    const last = journeySteps[journeySteps.length - 1];
-
-    // 번호 원의 반지름만큼 내려간 곳이 원의 중심
-    const circleSize = parseFloat(getComputedStyle(first, '::before').height) || 44;
-    const half = circleSize / 2;
-
-    // 진행 선은 첫 원의 중심에서 마지막 원의 중심까지
-    const trackLength = last.offsetTop - first.offsetTop;
-    const startY = first.getBoundingClientRect().top + half;
-    const fill = clamp(line - startY, 0, trackLength);
-
-    journey.style.setProperty('--journey-track', `${trackLength}px`);
-    journey.style.setProperty('--journey-fill', `${fill}px`);
-
-    let activeIndex = -1;
-    journeySteps.forEach((li, index) => {
-      if (li.getBoundingClientRect().top + half <= line) activeIndex = index;
-    });
-
-    journeySteps.forEach((li, index) => {
-      li.classList.toggle('is-active', index === activeIndex);
-      li.classList.toggle('is-passed', index < activeIndex);
-    });
-  }
-
-  let scrollTicking = false;
-  function onScroll() {
-    if (scrollTicking) return;
-    scrollTicking = true;
+  let measureQueued = false;
+  function scheduleMeasure() {
+    if (measureQueued) return;
+    measureQueued = true;
     requestAnimationFrame(() => {
-      scrollTicking = false;
-      updateHeader();
-      updateTopButton();
-      updateJourney();
+      measureQueued = false;
+      measure();
     });
   }
 
-  function initScrollEffects() {
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    onScroll();
+  function measure() {
+    view.vh = window.innerHeight;
+    cache.heroHeight = hero ? hero.offsetHeight : 0;
+
+    // 여행 과정: 각 단계의 문서 기준 위치와, 진행선이 지나갈 길이
+    if (journey && journeySteps.length > 0) {
+      const tops = journeySteps.map(docTop);
+      const circle = parseFloat(getComputedStyle(journeySteps[0], '::before').height) || 44;
+      const track = tops[tops.length - 1] - tops[0];
+      cache.journey = { tops, half: circle / 2, track };
+      journey.style.setProperty('--journey-track', `${track}px`);
+    }
+
+    // 고도 계기판: 이정표가 놓일 문서 위치 (hero 는 맨 위, 나머지는 요소의 세로 중앙)
+    // 데스크톱에서는 투어 카드 4장이 한 줄에 놓여 위치가 같아지므로, 최소 160px 간격을 벌려 구간을 만든다
+    const anchors = [];
+    let prevY = -Infinity;
+    HUD_STOPS.forEach((stop, index) => {
+      const el = document.getElementById(stop.id);
+      if (!el) return;
+      let y = view.vh * 0.5;
+      if (index > 0) y = docTop(el) + el.offsetHeight / 2;
+      y = Math.max(y, prevY + (index === 0 ? 0 : 160));
+      anchors.push({ alt: stop.alt, y });
+      prevY = y;
+    });
+    cache.anchors = anchors;
+
+    requestFrame();
   }
 
 
   /* ========================================================================
-     2. 스크롤 등장 효과 — IntersectionObserver
-     화면에 들어오면 .is-visible 을 붙여 페이드 + 슬라이드업.
-     (.reveal 도 JS가 붙이므로, JS가 없으면 처음부터 보인다.)
+     3. 매 프레임 처리 (steps 에 등록되는 함수들)
+     쓰기 전에 값이 바뀌었는지 확인해, 같은 값을 반복해서 쓰지 않는다.
+     ======================================================================== */
+
+  // 3-1. 헤더 배경 전환, 맨 위로 버튼
+  const topButton = $('.back-to-top');
+  const chrome = { scrolled: null, topVisible: null };
+
+  function stepChrome() {
+    const scrolled = view.y > 24;
+    if (scrolled !== chrome.scrolled) {
+      chrome.scrolled = scrolled;
+      root.classList.toggle('is-scrolled', scrolled);
+    }
+    const topVisible = view.y > view.vh * 0.8;
+    if (topButton && topVisible !== chrome.topVisible) {
+      chrome.topVisible = topVisible;
+      topButton.classList.toggle('is-visible', topVisible);
+    }
+    return false;
+  }
+
+  // 3-2. 여행 과정: 기준선이 각 번호 원을 지날 때 차례로 강조하고 진행 선을 채운다
+  const journeyState = { fill: -1, active: -2, rocket: null };
+
+  function stepJourney() {
+    const info = cache.journey;
+    if (!info) return false;
+
+    const line = view.y + view.vh * 0.55;                 // 문서 기준 기준선 위치
+    const fill = Math.round(clamp(line - (info.tops[0] + info.half), 0, info.track));
+
+    if (fill !== journeyState.fill) {
+      journeyState.fill = fill;
+      journey.style.setProperty('--journey-fill', `${fill}px`);
+      if (journeyState.rocket) journeyState.rocket.classList.toggle('is-on', fill > 2);
+    }
+
+    let activeIndex = -1;
+    for (let i = 0; i < info.tops.length; i++) {
+      if (info.tops[i] + info.half <= line) activeIndex = i;
+    }
+    if (activeIndex !== journeyState.active) {
+      journeyState.active = activeIndex;
+      journeySteps.forEach((li, index) => {
+        li.classList.toggle('is-active', index === activeIndex);
+        li.classList.toggle('is-passed', index < activeIndex);
+      });
+    }
+    return false;
+  }
+
+  // 3-3. hero 패럴랙스: 스크롤하면 지구 사진은 확대, 글씨는 위로 올라가며 옅어짐 (CSS 변수 하나로 전달)
+  let heroProgress = -1;
+
+  function stepHeroParallax(dt, dy, motion) {
+    if (!hero || !motion) return false;
+    const p = clamp(view.y / Math.max(cache.heroHeight, 1), 0, 1);
+    if (Math.abs(p - heroProgress) > 0.001) {
+      heroProgress = p;
+      hero.style.setProperty('--hero-p', p.toFixed(3));
+    }
+    return false;
+  }
+
+  // 3-4. 고도 계기판(HUD): 화면 중앙 높이에 있는 위치를 이정표 사이에서 보간해 km 로 환산
+  const hud = { shown: 0, text: '', progress: -1, passed: -1, el: null, value: null, ticks: [] };
+
+  // 이정표 사이를 보간: 둘 다 0보다 크면 지수(곱) 보간이라 100 → 400 → 384,400 처럼 자릿수가 커지는 구간도 고르게 변한다
+  function altitudeAt(y) {
+    const a = cache.anchors;
+    if (a.length === 0) return { value: 0, progress: 0 };
+    if (y <= a[0].y) return { value: a[0].alt, progress: 0 };
+
+    for (let i = 1; i < a.length; i++) {
+      if (y <= a[i].y) {
+        const t = (y - a[i - 1].y) / (a[i].y - a[i - 1].y);
+        const lo = a[i - 1].alt;
+        const hi = a[i].alt;
+        const value = lo > 0 ? lo * Math.pow(hi / lo, t) : lo + (hi - lo) * t;
+        return { value, progress: (i - 1 + t) / (a.length - 1) };
+      }
+    }
+    return { value: a[a.length - 1].alt, progress: 1 }; // 이후 섹션은 마지막 값 유지
+  }
+
+  function stepHud(dt, dy, motion) {
+    if (!hud.el || cache.anchors.length === 0) return false;
+
+    const { value, progress } = altitudeAt(view.y + view.vh * 0.5);
+    let keepGoing = false;
+
+    if (motion) {
+      // 숫자가 목표값을 향해 부드럽게 따라간다 (지수 감쇠)
+      const diff = value - hud.shown;
+      if (Math.abs(diff) < 0.5) {
+        hud.shown = value;
+      } else {
+        hud.shown += diff * (1 - Math.exp(-dt * 7));
+        keepGoing = true;
+      }
+    } else {
+      hud.shown = value; // 모션 줄이기: 애니메이션 없이 정지된 값만 갱신
+    }
+
+    const text = Math.round(hud.shown).toLocaleString('en-US');
+    if (text !== hud.text) {
+      hud.text = text;
+      hud.value.textContent = text;
+    }
+
+    if (Math.abs(progress - hud.progress) > 0.0005) {
+      hud.progress = progress;
+      hud.el.style.setProperty('--hud-p', progress.toFixed(4));
+
+      const passed = Math.floor(progress * (HUD_STOPS.length - 1) + 0.001);
+      if (passed !== hud.passed) {
+        hud.passed = passed;
+        hud.ticks.forEach((tick, index) => tick.classList.toggle('is-passed', index <= passed));
+      }
+    }
+    return keepGoing;
+  }
+
+  function initHud() {
+    const el = document.createElement('aside');
+    el.className = 'altitude-hud';
+    el.setAttribute('aria-hidden', 'true'); // 계속 바뀌는 숫자라 스크린리더에는 읽히지 않게 한다
+
+    const readout = document.createElement('div');
+    readout.className = 'altitude-hud-readout';
+    const label = document.createElement('span');
+    label.className = 'altitude-hud-label';
+    label.textContent = '고도';
+    const value = document.createElement('span');
+    value.className = 'altitude-hud-value';
+    value.textContent = '0';
+    const unit = document.createElement('span');
+    unit.className = 'altitude-hud-unit';
+    unit.textContent = 'km';
+    readout.append(label, value, unit);
+
+    const track = document.createElement('div');
+    track.className = 'altitude-hud-track';
+    HUD_STOPS.forEach((stop, index) => {
+      const tick = document.createElement('span');
+      tick.className = 'altitude-hud-tick';
+      tick.style.setProperty('--t', String(index / (HUD_STOPS.length - 1)));
+      track.appendChild(tick);
+      hud.ticks.push(tick);
+    });
+    const dot = document.createElement('span');
+    dot.className = 'altitude-hud-dot';
+    track.appendChild(dot);
+
+    el.append(readout, track);
+    document.body.appendChild(el);
+    hud.el = el;
+    hud.value = value;
+  }
+
+
+  /* ========================================================================
+     4. 스크롤 등장 효과 — IntersectionObserver
+     - 화면에 들어오면 .is-visible 을 붙여 페이드 + 이동. (.reveal 도 JS가 붙이므로 JS가 없으면 처음부터 보인다.)
+     - 같은 그룹(카드·수치·사진·질문·단계) 안에서는 --i(0,1,2…)를 줘서 0.08초 간격으로 차례로 튀어나온다.
+     - 그룹마다 등장 방식이 다르다: 아래→위 / 확대 / 좌우 교차 / 왼쪽에서.
      ======================================================================== */
   function initReveal() {
     if (!('IntersectionObserver' in window)) return;
 
-    const targets = $$([
+    // cap: 한 줄에 함께 보일 만큼의 개수. 번호를 cap 으로 나눈 나머지로 지연을 주어, 아래 줄 카드가 너무 늦게 나오지 않게 한다
+    const groups = [
+      { selector: '.stat-item', cap: 4, variant: 'zoom' },
+      { selector: '.tour-card', cap: 4, variant: '' },
+      { selector: '.gallery-item', cap: 3, variant: 'zoom' },
+      { selector: '.faq-item', cap: 5, variant: 'alternate' },
+      { selector: '.journey-step > li', cap: 1, variant: 'left' }
+    ];
+
+    // 그룹이 아닌 단독 요소는 기본 효과
+    const singles = $$([
       'main > section:not(#hero) > h2',
       'main > section:not(#hero) > p',
-      '.stat-item',
-      '.tour-card',
       '.compare-table',
-      '.gallery-item',
-      '.faq-item',
       '.booking-form fieldset:not(.radio-group)',
       '.booking-form > button'
     ].join(','));
@@ -131,15 +342,23 @@
       });
     }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
 
-    targets.forEach((el) => {
+    function prepare(el, index, cap, variant) {
       el.classList.add('reveal');
+      el.style.setProperty('--i', String(index % cap));
+      if (variant === 'alternate') el.classList.add(index % 2 === 0 ? 'reveal--left' : 'reveal--right');
+      else if (variant) el.classList.add(`reveal--${variant}`);
       observer.observe(el);
+    }
+
+    groups.forEach(({ selector, cap, variant }) => {
+      $$(selector).forEach((el, index) => prepare(el, index, cap, variant));
     });
+    singles.forEach((el) => prepare(el, 0, 1, ''));
   }
 
 
   /* ========================================================================
-     3. 수치 카운트업 — about 의 .stat-number
+     5. 수치 카운트업 — about 의 .stat-number
      화면에 처음 보일 때 0 에서 목표값까지 증가. 쉼표 표기는 유지하고 단위(명·회·km·년)는
      HTML 에 따로 있으므로 숫자만 바꾼다.
      ======================================================================== */
@@ -182,7 +401,7 @@
 
 
   /* ========================================================================
-     4. 현재 섹션 표시 — 스크롤 위치에 맞는 내비게이션 메뉴를 활성화
+     6. 현재 섹션 표시 — 스크롤 위치에 맞는 내비게이션 메뉴를 활성화
      화면 위에서 약 40% 지점의 가는 띠를 지나는 섹션을 "현재 섹션"으로 본다.
      ======================================================================== */
   function initActiveNav() {
@@ -213,7 +432,7 @@
 
 
   /* ========================================================================
-     5. 부드러운 앵커 이동 — 고정 헤더 높이만큼 보정
+     7. 부드러운 앵커 이동 — 고정 헤더 높이만큼 보정
      ======================================================================== */
   function scrollToId(id) {
     const target = id === 'page-wrapper' || id === 'hero' ? null : document.getElementById(id);
@@ -255,7 +474,7 @@
 
 
   /* ========================================================================
-     6. 모바일 메뉴 — 열고 닫기, aria-expanded 갱신
+     8. 모바일 메뉴 — 열고 닫기, aria-expanded 갱신
      ======================================================================== */
   function initMobileMenu() {
     const nav = $('#main-navigation');
@@ -300,7 +519,7 @@
 
 
   /* ========================================================================
-     7. 예약 폼 검증과 접수 확인창
+     9. 예약 폼 검증과 접수 확인창
      - 제출 시 모든 항목을 검사하고, 잘못된 입력 아래에 오류 메시지를 표시한다.
      - JS 가 없으면 novalidate 가 붙지 않아 브라우저 기본 검증이 그대로 동작한다.
      - 통과하면 실제 전송 없이 <dialog> 확인창을 띄운다.
@@ -310,7 +529,8 @@
     if (!form) return;
     form.noValidate = true;
 
-    const MAX_BY_TOUR = { suborbital: 6, orbital: 6, moon: 4, deepspace: 4 }; // 비교표의 정원과 동일
+    // 정원: 상품 비교표(#compare)의 "정원" 행과 같은 값이어야 한다
+    const MAX_BY_TOUR = { suborbital: 6, orbital: 6, moon: 4, deepspace: 4 };
     const TOUR_NAMES = { moon: '달 플라이바이', deepspace: '딥스페이스 관측' };
 
     const todayString = () => {
@@ -523,10 +743,12 @@
 
 
   /* ========================================================================
-     8. hero 별 배경 — canvas 로 반짝이며 천천히 움직이는 별
+     10. hero 별 배경 — canvas 로 반짝이며 천천히 움직이는 별 + 워프
      - 별 좌표는 0~1 비율로 저장해 두어, 화면 크기가 바뀌어도 별이 다시 뿌려지지 않는다.
-     - 탭이 안 보이거나 hero 가 화면 밖이면 애니메이션을 멈춘다.
-     - 모션 줄이기 설정이면 움직이지 않는 별 한 장면만 그린다.
+     - 스크롤 속도(dy/dt)에 비례해 별이 세로로 길게 늘어나며 빠르게 지나가고(워프),
+       멈추면 천천히 원래 점으로 돌아온다.
+     - 탭이 안 보이거나 hero 가 화면 밖이면 계산하지 않는다. 모션 줄이기면 정지된 별 한 장면만 그린다.
+     - 별 그리기는 1번의 프레임 루프에 등록된 step 으로 돌아간다.
      ======================================================================== */
   function initStarfield() {
     const host = $('.hero-background');
@@ -544,16 +766,18 @@
     let height = 0;
     let stars = [];
     let meteors = [];
-    let frameId = 0;
-    let lastTime = 0;
     let clock = 0;
     let nextMeteorIn = 4;
-    let running = false;
     let heroVisible = true;
+    let warp = 0;       // 0(점) ~ 1(가장 길게 늘어남)
+    let warpDir = 1;    // 스크롤 방향: 아래로 내리면 별은 위로 흐르고 꼬리는 아래로 길어진다
+
+    function starCount() {
+      return clamp(Math.round((width * height) / 3600), 90, 420);
+    }
 
     function createStars() {
-      const count = clamp(Math.round((width * height) / 3600), 90, 420);
-      stars = Array.from({ length: count }, () => {
+      stars = Array.from({ length: starCount() }, () => {
         const size = 0.35 + Math.pow(Math.random(), 3) * 1.6; // 작은 별이 훨씬 많게
         return {
           x: Math.random(),
@@ -578,10 +802,9 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // 화면 넓이에 비해 별 수가 너무 달라졌을 때만 다시 만든다
-      const wanted = clamp(Math.round((width * height) / 3600), 90, 420);
-      if (stars.length === 0 || Math.abs(wanted - stars.length) / stars.length > 0.25) createStars();
+      if (stars.length === 0 || Math.abs(starCount() - stars.length) / stars.length > 0.25) createStars();
 
-      if (!running) draw(0);
+      if (!isRunning()) draw(0, 0);
     }
 
     function spawnMeteor() {
@@ -597,30 +820,57 @@
       });
     }
 
-    function draw(dt) {
+    function draw(dt, dy) {
       ctx.clearRect(0, 0, width, height);
+
+      // 스크롤 속도 → 워프 세기: 빨라질 때는 빠르게 반응하고, 멈추면 천천히 돌아온다
+      if (dt > 0) {
+        const speed = Math.abs(dy) / dt; // px/초
+        const target = clamp(speed / 1800, 0, 1);
+        warp += (target - warp) * (1 - Math.exp(-dt * (target > warp ? 16 : 2.4)));
+        if (dy !== 0) warpDir = dy > 0 ? 1 : -1;
+      }
+      const streaking = warp > 0.04;
 
       for (const s of stars) {
         // 천천히 왼쪽으로 흐르고, 화면 끝에서 반대편으로 다시 들어온다
         s.x -= (s.drift * dt) / width;
         if (s.x < -0.01) s.x += 1.02;
 
+        // 스크롤하면 가까운(큰) 별일수록 더 많이 밀려난다 (시차)
+        if (dy !== 0) {
+          s.y -= (dy * (0.15 + s.size * 0.3)) / height;
+          if (s.y < 0) s.y += 1;
+          else if (s.y > 1) s.y -= 1;
+        }
+
         const twinkle = 0.62 + 0.38 * Math.sin(clock * s.twinkleSpeed + s.phase);
         const a = s.alpha * twinkle;
         const px = s.x * width;
         const py = s.y * height;
 
-        ctx.fillStyle = `rgba(${s.tint},${a.toFixed(3)})`;
-        ctx.beginPath();
-        ctx.arc(px, py, s.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 큰 별에는 은은한 번짐을 한 겹 더
-        if (s.size > 1.3) {
-          ctx.fillStyle = `rgba(${s.tint},${(a * 0.16).toFixed(3)})`;
+        if (streaking) {
+          // 워프: 점 대신 세로 선. 큰 별일수록 길다
+          const length = warp * (18 + s.size * 80);
+          ctx.strokeStyle = `rgba(${s.tint},${Math.min(a + warp * 0.3, 1).toFixed(3)})`;
+          ctx.lineWidth = Math.max(s.size * 0.9, 0.6);
           ctx.beginPath();
-          ctx.arc(px, py, s.size * 3.2, 0, Math.PI * 2);
+          ctx.moveTo(px, py);
+          ctx.lineTo(px, py + warpDir * length);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = `rgba(${s.tint},${a.toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(px, py, s.size, 0, Math.PI * 2);
           ctx.fill();
+
+          // 큰 별에는 은은한 번짐을 한 겹 더
+          if (s.size > 1.3) {
+            ctx.fillStyle = `rgba(${s.tint},${(a * 0.16).toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(px, py, s.size * 3.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       }
 
@@ -648,66 +898,268 @@
       }
     }
 
-    function frame(now) {
-      frameId = requestAnimationFrame(frame);
-      const dt = Math.min((now - lastTime) / 1000, 0.05); // 탭 복귀 직후의 큰 간격은 잘라 낸다
-      lastTime = now;
-      clock += dt;
+    // 보일 때만 움직인다: 탭이 보이고, hero 가 화면 안에 있고, 모션 줄이기가 꺼져 있을 때
+    const isRunning = () => heroVisible && !document.hidden && !prefersReducedMotion();
 
+    // 프레임 루프에 등록되는 step: 움직이는 동안 true 를 돌려주면 루프가 계속 돈다
+    steps.push((dt, dy, motion) => {
+      if (!motion || !heroVisible || document.hidden) return false;
+      clock += dt;
       nextMeteorIn -= dt;
       if (nextMeteorIn <= 0) {
         spawnMeteor();
         nextMeteorIn = 6 + Math.random() * 7;
       }
-      draw(dt);
-    }
+      draw(dt, dy);
+      return true;
+    });
 
-    function start() {
-      if (running) return;
-      running = true;
-      lastTime = performance.now();
-      frameId = requestAnimationFrame(frame);
-    }
-
-    function stop() {
-      running = false;
-      cancelAnimationFrame(frameId);
-    }
-
-    // 보일 때만 움직인다: 탭이 보이고, hero 가 화면 안에 있고, 모션 줄이기가 꺼져 있을 때
-    function syncRunning() {
-      if (heroVisible && !document.hidden && !prefersReducedMotion()) start();
+    function sync() {
+      if (isRunning()) requestFrame();
       else {
-        stop();
-        draw(0);
+        warp = 0;
+        draw(0, 0); // 멈춘 상태에서는 정지된 별 한 장면
       }
     }
 
     new ResizeObserver(resize).observe(host);
-    document.addEventListener('visibilitychange', syncRunning);
-    motionQuery.addEventListener('change', syncRunning);
+    document.addEventListener('visibilitychange', sync);
+    motionQuery.addEventListener('change', sync);
 
     if ('IntersectionObserver' in window) {
       new IntersectionObserver((entries) => {
         heroVisible = entries[entries.length - 1].isIntersecting;
-        syncRunning();
+        sync();
       }).observe(host);
     }
 
     resize();
-    syncRunning();
+    sync();
   }
 
 
   /* ========================================================================
-     9. 실행
+     11. hero 제목 — 글자 단위로 차례로 떠오른다
+     - 원문은 h2 의 aria-label 로 보존하고, 쪼갠 글자는 aria-hidden 으로 가려 스크린리더가 한 글자씩 읽지 않게 한다.
+     - 띄어쓰기 단위(.word)로 묶어, 줄이 바뀔 때 단어 중간에서 끊기지 않게 한다.
+     - 모션 줄이기가 켜져 있으면 쪼개지 않고 그대로 둔다.
      ======================================================================== */
-  initScrollEffects();
+  function initHeroTitle() {
+    const title = $('.hero-title');
+    if (!title || !hero || prefersReducedMotion()) return;
+
+    const text = title.textContent.trim();
+    title.setAttribute('aria-label', text);
+    title.textContent = '';
+
+    const wrapper = document.createElement('span');
+    wrapper.setAttribute('aria-hidden', 'true');
+
+    let index = 0;
+    const words = text.split(' ');
+    words.forEach((wordText, wordIndex) => {
+      const word = document.createElement('span');
+      word.className = 'word';
+      Array.from(wordText).forEach((letter) => {
+        const char = document.createElement('span');
+        char.className = 'char';
+        char.textContent = letter;
+        char.style.setProperty('--i', String(index++));
+        word.appendChild(char);
+      });
+      wrapper.appendChild(word);
+      if (wordIndex < words.length - 1) wrapper.appendChild(document.createTextNode(' '));
+    });
+
+    title.appendChild(wrapper);
+    title.classList.add('is-split');
+    hero.classList.add('hero-intro');
+
+    // 시작 상태가 한 번 그려진 뒤에 클래스를 바꿔야 전환이 실제로 재생된다
+    requestAnimationFrame(() => requestAnimationFrame(() => hero.classList.add('is-ready')));
+  }
+
+
+  /* ========================================================================
+     12. 여행 과정 로켓 — 진행선 끝에 붙어 스크롤에 따라 내려간다
+     SVG 를 코드로 직접 그린 것이며 외부 이미지는 쓰지 않는다.
+     위치는 3-2 의 --journey-fill 값을 CSS 가 그대로 쓰므로 여기서 따로 계산하지 않는다.
+     ======================================================================== */
+  function initJourneyRocket() {
+    if (!journey || prefersReducedMotion()) return;
+
+    const rocket = document.createElement('span');
+    rocket.className = 'journey-rocket';
+    rocket.setAttribute('aria-hidden', 'true');
+    // 위쪽을 향한 로켓: 불꽃 / 동체 / 창문 / 날개 (CSS 에서 180도 돌려 아래로 향하게 함)
+    rocket.innerHTML =
+      '<svg viewBox="0 0 24 40" focusable="false">' +
+      '<path class="rocket-flame" d="M8.5 29 Q12 42 15.5 29 Z" fill="#ffb072"/>' +
+      '<path d="M7 24 L2 33 L7.5 30.5 Z M17 24 L22 33 L16.5 30.5 Z" fill="#5fd4e8"/>' +
+      '<path d="M12 1 C17.5 7 18.5 16 17.5 29 H6.5 C5.5 16 6.5 7 12 1 Z" fill="#e8eef8"/>' +
+      '<circle cx="12" cy="14" r="3.2" fill="#3b8ff0" stroke="#07142e" stroke-width="1"/>' +
+      '</svg>';
+
+    journey.appendChild(rocket);
+    journeyState.rocket = rocket;
+  }
+
+
+  /* ========================================================================
+     13. 갤러리 라이트박스 — 사진을 크게 보고 이전/다음으로 넘긴다
+     - 오버레이는 createElement 로 만들어 body 에 붙인다.
+     - 열면 포커스를 오버레이로 옮기고, 닫으면 눌렀던 사진 링크로 되돌린다.
+     - 이전/다음 버튼, 닫기 버튼, 바깥 클릭, Esc, 좌우 방향키, 터치 스와이프를 지원한다.
+     - JS 가 없으면 사진 링크는 그냥 원본 이미지 파일로 이동한다.
+     ======================================================================== */
+  function initLightbox() {
+    const links = $$('.gallery-item .gallery-link');
+    if (links.length === 0) return;
+
+    let current = -1;
+    let opener = null;
+
+    // 오버레이 구성: 닫기 / 이전 / 다음 / 번호 / 사진 + 설명
+    const overlay = document.createElement('div');
+    overlay.className = 'lightbox';
+    overlay.hidden = true;
+    overlay.tabIndex = -1;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', '갤러리 사진 크게 보기');
+
+    function makeButton(className, label, symbol) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `lightbox-btn ${className}`;
+      button.setAttribute('aria-label', label);
+      button.textContent = symbol;
+      return button;
+    }
+
+    const closeButton = makeButton('lightbox-close', '닫기', '×');
+    const prevButton = makeButton('lightbox-prev', '이전 사진', '‹');
+    const nextButton = makeButton('lightbox-next', '다음 사진', '›');
+
+    const counter = document.createElement('span');
+    counter.className = 'lightbox-count';
+    counter.setAttribute('aria-live', 'polite');
+
+    const figure = document.createElement('figure');
+    figure.className = 'lightbox-figure';
+    const image = document.createElement('img');
+    image.className = 'lightbox-img';
+    const caption = document.createElement('figcaption');
+    caption.className = 'lightbox-caption';
+    figure.append(image, caption);
+
+    overlay.append(closeButton, prevButton, nextButton, counter, figure);
+    document.body.appendChild(overlay);
+
+    function show(index) {
+      current = (index + links.length) % links.length;
+      const link = links[current];
+      const thumb = $('img', link);
+      const figcaption = $('figcaption', link.closest('figure'));
+
+      image.src = link.getAttribute('href');
+      image.alt = thumb ? thumb.alt : '';
+      caption.textContent = figcaption ? figcaption.textContent.trim() : '';
+      counter.textContent = `${current + 1} / ${links.length}`;
+
+      // 이전·다음 사진을 미리 받아 두어 넘길 때 기다리지 않게 한다
+      [current - 1, current + 1].forEach((i) => {
+        new Image().src = links[(i + links.length) % links.length].getAttribute('href');
+      });
+    }
+
+    function open(index, trigger) {
+      opener = trigger;
+      overlay.hidden = false;
+      root.classList.add('lightbox-open');
+      show(index);
+      requestAnimationFrame(() => overlay.classList.add('is-open')); // 페이드 인
+      overlay.focus();
+    }
+
+    function close() {
+      overlay.classList.remove('is-open');
+      overlay.hidden = true;
+      root.classList.remove('lightbox-open');
+      if (opener) opener.focus(); // 눌렀던 사진으로 포커스 복귀
+      opener = null;
+    }
+
+    links.forEach((link, index) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        open(index, link);
+      });
+    });
+
+    closeButton.addEventListener('click', close);
+    prevButton.addEventListener('click', () => show(current - 1));
+    nextButton.addEventListener('click', () => show(current + 1));
+
+    // 사진·설명·버튼이 아닌 어두운 바깥을 누르면 닫힘
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay || event.target === figure) close();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (overlay.hidden) return;
+
+      if (event.key === 'Escape') close();
+      else if (event.key === 'ArrowLeft') show(current - 1);
+      else if (event.key === 'ArrowRight') show(current + 1);
+      else if (event.key === 'Tab') {
+        // 포커스가 오버레이 밖으로 나가지 않도록 세 버튼 사이에서만 순환
+        const focusable = [closeButton, prevButton, nextButton];
+        const index = focusable.indexOf(document.activeElement);
+        event.preventDefault();
+        const next = event.shiftKey ? index - 1 : index + 1;
+        focusable[(next + focusable.length) % focusable.length].focus();
+      }
+    });
+
+    // 터치 스와이프: 좌우로 쓸어 넘기기
+    let touchStartX = 0;
+    overlay.addEventListener('touchstart', (event) => {
+      touchStartX = event.changedTouches[0].clientX;
+    }, { passive: true });
+    overlay.addEventListener('touchend', (event) => {
+      const diff = event.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(diff) > 50) show(current + (diff < 0 ? 1 : -1));
+    }, { passive: true });
+  }
+
+
+  /* ========================================================================
+     14. 실행
+     ======================================================================== */
+  steps.push(stepChrome, stepJourney, stepHeroParallax, stepHud);
+
+  initHud();
   initReveal();
   initCountUp();
   initActiveNav();
   initSmoothAnchors();
   initMobileMenu();
   initBookingForm();
+  initHeroTitle();
+  initJourneyRocket();
   initStarfield();
+  initLightbox();
+
+  // 스크롤이 일어날 때만 프레임 루프를 깨운다
+  window.addEventListener('scroll', requestFrame, { passive: true });
+  window.addEventListener('resize', scheduleMeasure);
+  window.addEventListener('load', scheduleMeasure);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleMeasure);
+
+  // 이미지 로딩 등으로 본문 높이가 바뀌면 측정값을 다시 잡는다
+  const content = $('#content');
+  if (content && 'ResizeObserver' in window) new ResizeObserver(scheduleMeasure).observe(content);
+
+  measure();
 })();
