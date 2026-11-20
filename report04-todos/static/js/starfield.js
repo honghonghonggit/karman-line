@@ -16,8 +16,12 @@
   const isSmall = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches;
   const TINTS = ['255,255,255', '255,255,255', '255,255,255', '170,215,255', '255,226,190'];
   const GAL_COLORS = ['255,255,255', '95,212,232', '150,200,255', '255,236,214'];
-  const GAL_ALPHAS = [0.16, 0.3, 0.5, 0.78];
-  const GALAXY_N = isSmall ? 900 : 1900;
+  const GAL_ALPHAS = [0.2, 0.36, 0.58, 0.88];
+  const GALAXY_N = isSmall ? 1800 : 3600;
+  const PUSH_RADIUS = isSmall ? 80 : 120;   // 마우스가 은하 입자를 밀어내는 반경(px)
+  const pointer = { x: 0, y: 0, active: false };
+  let scrollY = 0, prevScrollY = 0;
+  let warp = 0, warpDir = 1;                // 스크롤 속도에 따라 별이 늘어나는 정도 0~1
 
   let width = 0;
   let height = 0;
@@ -33,7 +37,7 @@
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
   function createStars() {
-    const count = clamp(Math.round((width * height) / 4200), 80, 380);
+    const count = clamp(Math.round((width * height) / 1500), 220, 900);
     stars = Array.from({ length: count }, () => {
       const size = 0.35 + Math.pow(Math.random(), 3) * 1.6;
       return {
@@ -57,6 +61,8 @@
     const r = new Float32Array(GALAXY_N);
     const th = new Float32Array(GALAXY_N);
     const sz = new Float32Array(GALAXY_N);
+    const ox = new Float32Array(GALAXY_N);
+    const oy = new Float32Array(GALAXY_N);
 
     for (let i = 0; i < GALAXY_N; i++) {
       const roll = Math.random();
@@ -85,19 +91,30 @@
     const styles = [];
     GAL_COLORS.forEach((c) => GAL_ALPHAS.forEach((a) => styles.push(`rgba(${c},${a})`)));
     // 같은 색·밝기끼리 묶어 fillStyle 을 버킷마다 한 번만 바꾼다
-    galaxy = { r, th, sz, lists: buckets.map((l) => Int32Array.from(l)), styles };
+    galaxy = { r, th, sz, ox, oy, disturbed: false, lists: buckets.map((l) => Int32Array.from(l)), styles };
   }
 
-  function drawGalaxy() {
-    // 오른쪽 위에 비스듬히 누운 은하. 내용을 가리지 않게 은은하게 그린다.
+  function drawGalaxy(dt) {
+    // 스크롤하면 은하가 커지고 더 누워 기울어진다 (웹프로그램02 와 같은 방식)
+    const maxScroll = Math.max(document.documentElement.scrollHeight - height, 1);
+    const p = clamp(scrollY / maxScroll, 0, 1);
+    const zoom = 1 + p * 0.7;
+    const tilt = 0.52 - p * 0.3;               // 세로로 눌러 기울어 보이게
     const cx = width * (isSmall ? 0.78 : 0.84);
     const cy = height * (isSmall ? 0.17 : 0.2);
-    const radius = Math.min(width, height) * (isSmall ? 0.34 : 0.3);
-    const tilt = 0.52;                 // 세로로 눌러 기울어 보이게
-    const angle = clock * 0.025;       // 천천히 회전
-    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    const radius = Math.min(width, height) * (isSmall ? 0.34 : 0.3) * zoom;
+    const angle = clock * 0.025;                // 천천히 회전
     const skew = -0.5, cosS = Math.cos(skew), sinS = Math.sin(skew);
 
+    const animate = dt > 0;
+    const pointerOn = animate && pointer.active;
+    const track = animate && (pointerOn || galaxy.disturbed);
+    const decay = Math.exp(-dt * 2.4);          // 밀려난 입자가 제자리로 돌아오는 속도
+    const push2 = PUSH_RADIUS * PUSH_RADIUS;
+    const stretch = warp > 0.04 ? warp * 10 : 0; // 워프 중에는 입자도 길어진다
+    let maxOffset = 0;
+
+    ctx.globalCompositeOperation = 'lighter';    // 겹칠수록 밝아져 중심부가 빛난다
     for (let b = 0; b < galaxy.lists.length; b++) {
       const list = galaxy.lists[b];
       if (!list.length) continue;
@@ -106,16 +123,37 @@
         const i = list[k];
         const x0 = galaxy.r[i] * Math.cos(galaxy.th[i] + angle);
         const y0 = galaxy.r[i] * Math.sin(galaxy.th[i] + angle);
-        // 눌러서(tilt) 다시 비스듬히 돌린다
         const ex = x0 * radius;
         const ey = y0 * radius * tilt;
-        const x = cx + ex * cosS - ey * sinS;
-        const y = cy + ex * sinS + ey * cosS;
+        let x = cx + ex * cosS - ey * sinS;
+        let y = cy + ex * sinS + ey * cosS;
+
+        if (track) {
+          let ox = galaxy.ox[i], oy = galaxy.oy[i];
+          if (pointerOn) {
+            const dx = x + ox - pointer.x;
+            const dy = y + oy - pointer.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < push2) {
+              const d = Math.sqrt(d2) + 0.001;
+              const f = 1 - d / PUSH_RADIUS;    // 가까울수록 세게
+              const push = (f * f * dt * 260) / d;
+              ox += dx * push;
+              oy += dy * push;
+            }
+          }
+          ox *= decay; oy *= decay;
+          galaxy.ox[i] = ox; galaxy.oy[i] = oy;
+          x += ox; y += oy;
+          const off = ox * ox + oy * oy;
+          if (off > maxOffset) maxOffset = off;
+        }
         const s = galaxy.sz[i];
-        ctx.fillRect(x, y, s, s);
+        ctx.fillRect(x, stretch && warpDir < 0 ? y - stretch : y, s, s + stretch);
       }
     }
-    void cosA; void sinA;
+    ctx.globalCompositeOperation = 'source-over';
+    if (track) galaxy.disturbed = pointerOn || maxOffset > 0.01;
   }
 
   function spawnMeteor() {
@@ -132,30 +170,58 @@
     });
   }
 
-  function draw(dt) {
+  function draw(dt, dy = 0) {
     ctx.clearRect(0, 0, width, height);
 
-    // 별
+    // 스크롤 속도 → 워프 세기: 빨라질 때는 빠르게, 멈추면 천천히 돌아온다
+    if (dt > 0) {
+      const speed = Math.abs(dy) / dt;
+      const target = clamp(speed / 1800, 0, 1);
+      warp += (target - warp) * (1 - Math.exp(-dt * (target > warp ? 16 : 2.4)));
+      if (dy !== 0) warpDir = dy > 0 ? 1 : -1;
+    }
+    const streaking = warp > 0.04;
+
+    drawGalaxy(dt);   // 별보다 먼저(뒤에) 그린다
+
     for (const s of stars) {
+      // 천천히 왼쪽으로 흐른다
       if (dt) {
-        s.y -= (s.drift * dt) / height;
-        if (s.y < -0.01) { s.y = 1.01; s.x = Math.random(); }
+        s.x -= (s.drift * dt) / width;
+        if (s.x < -0.01) s.x += 1.02;
+      }
+      // 스크롤하면 큰(가까운) 별일수록 더 많이 밀려난다 (시차)
+      if (dy !== 0) {
+        s.y -= (dy * (0.15 + s.size * 0.3)) / height;
+        if (s.y < 0) s.y += 1; else if (s.y > 1) s.y -= 1;
       }
       const tw = 0.65 + 0.35 * Math.sin(clock * s.speed + s.phase);
-      ctx.globalAlpha = s.alpha * tw;
-      ctx.fillStyle = `rgb(${s.tint})`;
+      const a = s.alpha * tw;
       const px = s.x * width, py = s.y * height;
-      if (s.size > 1.2) {
+
+      if (streaking) {
+        // 워프: 점 대신 세로 선. 큰 별일수록 길다
+        const len = warp * (18 + s.size * 80);
+        ctx.strokeStyle = `rgba(${s.tint},${Math.min(a + warp * 0.3, 1).toFixed(3)})`;
+        ctx.lineWidth = Math.max(s.size * 0.9, 0.6);
         ctx.beginPath();
-        ctx.arc(px, py, s.size * 0.6, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px, py + warpDir * len);
+        ctx.stroke();
       } else {
-        ctx.fillRect(px, py, s.size, s.size);
+        ctx.fillStyle = `rgba(${s.tint},${a.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(px, py, s.size * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        if (s.size > 1.3) {          // 큰 별은 은은한 번짐을 한 겹 더
+          ctx.fillStyle = `rgba(${s.tint},${(a * 0.16).toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(px, py, s.size * 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
     ctx.globalAlpha = 1;
-
-    drawGalaxy();
 
     // 유성
     for (let i = meteors.length - 1; i >= 0; i--) {
@@ -188,7 +254,7 @@
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (!stars.length) createStars();
+    if (!stars.length || Math.abs(Math.round((width * height) / 1500) - stars.length) / stars.length > 0.25) createStars();
     draw(0);
   }
 
@@ -198,7 +264,9 @@
     clock += dt;
     nextMeteor -= dt;
     if (nextMeteor <= 0) { spawnMeteor(); nextMeteor = 5 + Math.random() * 6; }
-    draw(dt);
+    const dy = scrollY - prevScrollY;
+    prevScrollY = scrollY;
+    draw(dt, dy);
     rafId = requestAnimationFrame(frame);
   }
 
@@ -208,6 +276,22 @@
     rafId = requestAnimationFrame(frame);
   }
   function stop() { cancelAnimationFrame(rafId); rafId = 0; }
+
+  // 스크롤·마우스·터치 위치 기억
+  const onScroll = () => { scrollY = window.scrollY; if (!rafId) draw(0, 0); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' || reduceMotion) return;
+    pointer.x = e.clientX; pointer.y = e.clientY; pointer.active = true;
+  }, { passive: true });
+  document.documentElement.addEventListener('mouseleave', () => { pointer.active = false; });
+  const onTouch = (e) => {
+    if (reduceMotion || !e.touches.length) return;
+    pointer.x = e.touches[0].clientX; pointer.y = e.touches[0].clientY; pointer.active = true;
+  };
+  window.addEventListener('touchstart', onTouch, { passive: true });
+  window.addEventListener('touchmove', onTouch, { passive: true });
+  window.addEventListener('touchend', () => { pointer.active = false; }, { passive: true });
 
   createGalaxy();
   resize();
