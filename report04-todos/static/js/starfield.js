@@ -21,7 +21,6 @@
   const PUSH_RADIUS = isSmall ? 80 : 120;   // 마우스가 은하 입자를 밀어내는 반경(px)
   const pointer = { x: 0, y: 0, active: false };
   let scrollY = 0, prevScrollY = 0;
-  let warp = 0, warpDir = 1;                // 스크롤 속도에 따라 별이 늘어나는 정도 0~1
 
   let width = 0;
   let height = 0;
@@ -111,7 +110,6 @@
     const track = animate && (pointerOn || galaxy.disturbed);
     const decay = Math.exp(-dt * 2.4);          // 밀려난 입자가 제자리로 돌아오는 속도
     const push2 = PUSH_RADIUS * PUSH_RADIUS;
-    const stretch = warp > 0.04 ? warp * 10 : 0; // 워프 중에는 입자도 길어진다
     let maxOffset = 0;
 
     ctx.globalCompositeOperation = 'lighter';    // 겹칠수록 밝아져 중심부가 빛난다
@@ -149,7 +147,7 @@
           if (off > maxOffset) maxOffset = off;
         }
         const s = galaxy.sz[i];
-        ctx.fillRect(x, stretch && warpDir < 0 ? y - stretch : y, s, s + stretch);
+        ctx.fillRect(x, y, s, s);
       }
     }
     ctx.globalCompositeOperation = 'source-over';
@@ -173,15 +171,6 @@
   function draw(dt, dy = 0) {
     ctx.clearRect(0, 0, width, height);
 
-    // 스크롤 속도 → 워프 세기: 빨라질 때는 빠르게, 멈추면 천천히 돌아온다
-    if (dt > 0) {
-      const speed = Math.abs(dy) / dt;
-      const target = clamp(speed / 1800, 0, 1);
-      warp += (target - warp) * (1 - Math.exp(-dt * (target > warp ? 16 : 2.4)));
-      if (dy !== 0) warpDir = dy > 0 ? 1 : -1;
-    }
-    const streaking = warp > 0.04;
-
     drawGalaxy(dt);   // 별보다 먼저(뒤에) 그린다
 
     for (const s of stars) {
@@ -199,16 +188,7 @@
       const a = s.alpha * tw;
       const px = s.x * width, py = s.y * height;
 
-      if (streaking) {
-        // 워프: 점 대신 세로 선. 큰 별일수록 길다
-        const len = warp * (18 + s.size * 80);
-        ctx.strokeStyle = `rgba(${s.tint},${Math.min(a + warp * 0.3, 1).toFixed(3)})`;
-        ctx.lineWidth = Math.max(s.size * 0.9, 0.6);
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(px, py + warpDir * len);
-        ctx.stroke();
-      } else {
+      {
         ctx.fillStyle = `rgba(${s.tint},${a.toFixed(3)})`;
         ctx.beginPath();
         ctx.arc(px, py, s.size * 0.8, 0, Math.PI * 2);
