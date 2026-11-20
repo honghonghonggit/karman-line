@@ -357,6 +357,38 @@
   $('#toolbar').addEventListener('submit', (event) => event.preventDefault());
   $('#btn-add').addEventListener('click', () => openEditor(null));
 
+
+  /* ---------- 등장 효과 (웹프로그램02 의 hero 제목·스크롤 등장 효과를 줄여 가져옴) ---------- */
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // 제목: 글자를 하나씩 쪼개 차례로 떠오르게 한다. 원문은 aria-label 로 남겨 스크린리더가 한 글자씩 읽지 않게 한다.
+  function splitTitle() {
+    const title = $('.intro h1');
+    if (!title || reduceMotion) return;
+    const text = title.textContent;
+    title.setAttribute('aria-label', text);
+    title.replaceChildren(...text.split(' ').flatMap((word, w, all) => {
+      const group = el('span', { class: 'word', 'aria-hidden': 'true' },
+        [...word].map((ch, i) => el('span', { class: 'char', style: `--c:${w * 6 + i}` }, ch)));
+      return w < all.length - 1 ? [group, ' '] : [group];
+    }));
+  }
+
+  // 스크롤 등장: 화면에 들어올 때 한 번만 아래에서 올라오며 나타난다. JS 가 꺼져 있으면 처음부터 보인다.
+  function setupReveal() {
+    const targets = document.querySelectorAll('.intro .eyebrow, .intro .lead, .summary, .toolbar, .site-footer');
+    if (reduceMotion || !('IntersectionObserver' in window)) return;
+    document.documentElement.classList.add('js-reveal');
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }), { threshold: 0.15 });
+    targets.forEach((t, i) => { t.classList.add('reveal'); t.style.setProperty('--r', i); io.observe(t); });
+  }
+
+  splitTitle();
+  setupReveal();
+
   /* ---------- 시작 ---------- */
   fillStageOptions();
   load();
