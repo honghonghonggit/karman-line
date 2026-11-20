@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>탑승 준비 체크리스트 | Kármán Line</title>
+  <meta name="description" content="Kármán Line 우주 관광 탑승 전에 해야 할 준비를 단계별로 관리하는 체크리스트입니다. (과제용 가상 서비스)">
+
+  <!-- 웹폰트: 웹프로그램02(Kármán Line)와 같은 글꼴 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- 별 배경 (starfield.js 가 그린다) -->
+  <canvas id="starfield" aria-hidden="true"></canvas>
+
+  <!-- 헤더 -->
+  <header class="site-header">
+    <a class="brand" href="/">Kármán Line</a>
+    <span class="brand-note">웹프로그램03 · FastAPI CRUD</span>
+  </header>
+
+  <main class="app">
+    <!-- 제목 -->
+    <section class="intro">
+      <p class="eyebrow">고도 100km로 떠나기 전에</p>
+      <h1>탑승 준비 체크리스트</h1>
+      <p class="lead">신청부터 최종 점검까지, 탑승 전에 해야 할 일을 단계별로 정리합니다. 항목을 끌어서 다른 단계로 옮길 수도 있습니다.</p>
+    </section>
+
+    <!-- 진행률 요약 -->
+    <section class="summary" aria-label="진행 요약">
+      <div class="ring" role="img" aria-label="전체 진행률">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+          <circle class="ring-bar" id="ring-bar" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <div class="ring-text"><strong id="percent">0</strong><span>%</span></div>
+      </div>
+      <dl class="stats">
+        <div class="stat"><dt>전체 항목</dt><dd id="stat-total">0</dd></div>
+        <div class="stat"><dt>완료</dt><dd id="stat-done">0</dd></div>
+        <div class="stat"><dt>진행 중</dt><dd id="stat-open">0</dd></div>
+        <div class="stat stat-warn"><dt>마감 지남</dt><dd id="stat-overdue">0</dd></div>
+      </dl>
+    </section>
+
+    <!-- 검색·필터 -->
+    <form class="toolbar" id="toolbar" role="search" aria-label="항목 검색과 필터">
+      <div class="field field-search">
+        <label for="f-q">검색</label>
+        <input type="search" id="f-q" placeholder="제목이나 메모로 찾기" autocomplete="off" maxlength="100">
+      </div>
+      <div class="field">
+        <label for="f-status">상태</label>
+        <select id="f-status">
+          <option value="all">전체</option>
+          <option value="open">진행 중</option>
+          <option value="done">완료</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-priority">우선순위</label>
+        <select id="f-priority">
+          <option value="">전체</option>
+          <option value="high">높음</option>
+          <option value="normal">보통</option>
+          <option value="low">낮음</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-sort">정렬</label>
+        <select id="f-sort">
+          <option value="due">마감일 빠른 순</option>
+          <option value="priority">우선순위 순</option>
+          <option value="recent">최근 추가 순</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-add">+ 항목 추가</button>
+    </form>
+
+    <!-- 단계별 칸반 보드 (app.js 가 채운다) -->
+    <section class="board" id="board" aria-label="단계별 준비 항목"></section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Kármán Line은 과제용으로 만든 가상 기업입니다. 이 화면의 데이터는 이 컴퓨터의 SQLite 파일에만 저장됩니다.</p>
+    <p>디자인과 별 배경은 웹프로그램02(Kármán Line 홈페이지)의 CSS·JS를 가져와 고쳐 썼습니다.</p>
+  </footer>
+
+  <!-- 추가·수정 창 -->
+  <dialog id="edit-dialog" aria-labelledby="edit-title">
+    <form id="edit-form" novalidate>
+      <h2 id="edit-title">항목 추가</h2>
+
+      <div class="field">
+        <label for="e-title">할 일 <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="e-title" maxlength="100" placeholder="예) 신청서 제출하기" autocomplete="off">
+        <p class="error" id="e-title-error" role="alert" hidden>할 일을 입력해 주세요.</p>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="e-stage">단계</label>
+          <select id="e-stage"></select>
+        </div>
+        <div class="field">
+          <label for="e-priority">우선순위</label>
+          <select id="e-priority">
+            <option value="high">높음</option>
+            <option value="normal" selected>보통</option>
+            <option value="low">낮음</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="e-due">마감일 (선택)</label>
+        <input type="date" id="e-due">
+      </div>
+
+      <div class="field">
+        <label for="e-memo">메모 (선택)</label>
+        <textarea id="e-memo" rows="3" maxlength="500" placeholder="필요한 준비물이나 참고할 내용"></textarea>
+        <p class="counter"><span id="e-memo-count">0</span> / 500</p>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="edit-cancel">취소</button>
+        <button type="submit" class="btn btn-primary" id="edit-submit">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 삭제 확인 창 -->
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog" class="confirm">
+      <h2 id="confirm-title">항목을 삭제할까요?</h2>
+      <p id="confirm-text"></p>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn">취소</button>
+        <button value="ok" class="btn btn-danger" id="confirm-ok">삭제</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/js/starfield.js" defer></script>
+  <script src="/static/js/app.js" defer></script>
+</body>
+</html>
