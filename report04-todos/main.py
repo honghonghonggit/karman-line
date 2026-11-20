@@ -267,6 +267,9 @@ def update_todo(todo_id: int, body: TodoIn, db: sqlite3.Connection = Depends(get
 def patch_todo(todo_id: int, body: TodoPatch, db: sqlite3.Connection = Depends(get_db)):
     get_or_404(db, todo_id)
     changes = body.model_dump(exclude_unset=True)  # 보낸 항목만 골라낸다
+    for col in ("title", "memo", "stage", "priority", "done"):  # 비울 수 없는 항목에 null 이 오면 무시
+        if col in changes and changes[col] is None:
+            del changes[col]
     if "due_date" in changes and changes["due_date"] is not None:
         changes["due_date"] = changes["due_date"].isoformat()
     if "done" in changes and changes["done"] is not None:
